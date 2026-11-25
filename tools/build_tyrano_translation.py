@@ -61,8 +61,7 @@ def find_scenario_dir(game_dir, explicit):
                                              SCENARIO_CANDIDATES)
 
 
-def resolve_storage(name):
-    return scenario_common.resolve_storage(name)
+resolve_storage = scenario_common.resolve_storage
 
 
 def story_order(scenario_dir, entry):
@@ -225,10 +224,6 @@ def cmd(game_dir: Annotated[str, cliutil.Argument(help="extracted game dir")],
     return 0
 
 
-# --help prints the tool's full documentation: a single-command Typer app
-# shows the COMMAND docstring, so the module docstring is attached to it
-# (the argparse version printed the same text as its description).
-cmd.__doc__ = __doc__
 app = cliutil.command_app(cmd, help=__doc__)
 
 

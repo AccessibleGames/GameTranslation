@@ -45,7 +45,7 @@ jobs:
         run: uv run --no-sync python -m compileall -q rpgmaker kirikiri tyrano wolfrpg unity translation tools tests
       - name: Lint (ruff, rules pinned in pyproject.toml)
         run: uv run --no-sync python -m ruff check .
-      - name: Type budgets (mypy)
+      - name: Type check (mypy)
         run: uv run --no-sync python -m tools.mypy_check
       - name: Public-repo hygiene
         run: uv run --no-sync python -m pytest tests/test_repo_hygiene.py -q -n 0

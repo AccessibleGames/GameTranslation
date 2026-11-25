@@ -74,10 +74,6 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
     return 0
 
 
-# argparse showed the module docstring as the description; a single-command
-# Typer app renders the command's docstring, so point it at the same text
-# instead of keeping a second copy in sync.
-cmd.__doc__ = __doc__
 
 app = cliutil.command_app(cmd, help=__doc__)
 

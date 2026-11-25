@@ -119,7 +119,7 @@ def cmd(web_root: Annotated[str, cliutil.Argument(help="built game folder")],
     return 0
 
 
-app = cliutil.command_app(cmd, help=__doc__)
+app = cliutil.command_app(cmd)
 
 
 def main(argv=None) -> int:

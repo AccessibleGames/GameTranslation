@@ -62,15 +62,9 @@ def wsl(monkeypatch):
 
 
 @pytest.mark.parametrize("entry_point", ENTRY_POINTS)
-def test_foreign_path_is_refused_before_any_write(wsl, entry_point):
-    with pytest.raises(platform.CrossSideError, match="cross-system"):
-        _invoke(entry_point, "/mnt/c/game", "/mnt/c/game/data.xp3")
-
-
-@pytest.mark.parametrize("entry_point", ENTRY_POINTS)
 def test_refusal_names_the_offending_role(wsl, entry_point):
     """The error must say which argument was foreign, not just that one was."""
-    with pytest.raises(platform.CrossSideError) as excinfo:
+    with pytest.raises(platform.CrossSideError, match="cross-system") as excinfo:
         _invoke(entry_point, "/mnt/c/game", "/mnt/c/game/data.xp3")
     message = str(excinfo.value)
     assert "/mnt/c/" in message

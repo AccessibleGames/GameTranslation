@@ -88,9 +88,6 @@ def cmd(game_dir: Annotated[str, cliutil.Argument(
 
 
 app = cliutil.command_app(cmd, help=__doc__)
-# Typer renders the command's own docstring for a single-command app; keep
-# the module docstring visible in --help.
-cmd.__doc__ = __doc__
 
 
 def main(argv=None) -> int:

@@ -102,7 +102,7 @@ def _typer_command_functions(path):
     """Commands of a `typer.Typer` app (rpgmaker/cli.py).
 
     These are invisible to `_command_functions` twice over: they carry no
-    `setup_logging` call of their own (`cliutil.app_options` puts the shared
+    `setup_logging` call of their own (the Typer callback provides shared
     callback on the app), and they use bare `typer.Argument`/`typer.Option`
     instead of the `Annotated` form.  A decorator mentioning `command` is the
     reliable marker.
@@ -157,30 +157,16 @@ class TestEveryToolGatesItsPaths:
     """The gate exists, and it runs before the first filesystem access."""
 
     @pytest.mark.parametrize("path", GATED_TOOLS)
-    def test_the_command_calls_own_paths(self, path):
+    def test_each_command_gates_paths_before_filesystem_access(self, path):
         functions = _command_functions(os.path.join(REPO_ROOT, path))
-        assert functions, f"{path}: no command function found (setup_logging?)"
+        assert functions, f"{path}: no command handler found"
         for node in functions:
-            assert _own_paths_line(node) is not None, (
-                f"{path}:{node.lineno} {node.name}() never calls "
-                "cliutil.own_paths, so its paths are ungated")
-
-    @pytest.mark.parametrize("path", GATED_TOOLS)
-    def test_the_gate_precedes_the_first_filesystem_call(self, path):
-        """A gate after a stat/read has already admitted the foreign path.
-
-        `tools/build_ks_translation.py` delegates to a library function, so it
-        has no filesystem call of its own — the assertion is conditional and
-        that case is covered by the dynamic test below.
-        """
-        for node in _command_functions(os.path.join(REPO_ROOT, path)):
             gate = _own_paths_line(node)
+            assert gate is not None, f"{path}:{node.lineno} {node.name}() has no path guard"
             first = _first_fs_call_line(node)
-            if first is None:
-                continue
-            assert gate is not None and gate < first, (
-                f"{path}:{node.lineno} {node.name}() calls a filesystem "
-                f"function on line {first} before its gate on line {gate}")
+            assert first is None or gate < first, (
+                f"{path}:{first} calls the filesystem before the guard at line {gate}"
+            )
 
     def test_the_audited_list_covers_every_path_taking_tool(self):
         """A new tool that takes a game directory must be added here.

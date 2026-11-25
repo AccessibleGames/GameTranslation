@@ -14,7 +14,7 @@ from typing import Annotated
 import pytest
 import typer
 
-from rpgmaker import cliutil, logsetup
+from rpgmaker import cliutil
 
 
 def make_app():
@@ -174,17 +174,6 @@ class TestErrorCodeDuckTyping:
         assert cliutil._error_code(ValueError("real bug")) is None
 
 
-def test_caller_doc_uses_the_callers_module_docstring():
-    """`app(help=None)` must pick up the tool's module docstring, not
-    cliutil's own (which describes this module, not the tool)."""
-    namespace = {}
-    exec(compile('"""Tool docstring."""\n'
-                 "from rpgmaker import cliutil\n"
-                 "app = cliutil.app()\n",
-                 "<tool>", "exec"), namespace)
-    assert "Tool docstring" in (namespace["app"].info.help or "")
-
-
 def test_bracketed_help_text_is_not_eaten_by_rich_markup(capsys):
     """Typer's default rich markup parses `[...]` as style tags; game tags
     like `[iscript]` / `[l]` must survive `--help` verbatim."""
@@ -199,12 +188,3 @@ def test_bracketed_help_text_is_not_eaten_by_rich_markup(capsys):
     out = capsys.readouterr().out
     assert "[iscript]" in out
     assert "[l]" in out
-
-
-def test_logsetup_is_the_only_logging_entry():
-    """cliutil must not configure logging itself (single source)."""
-    import inspect
-
-    source = inspect.getsource(cliutil)
-    assert "basicConfig" not in source.replace('"""', "")
-    assert logsetup.setup is logsetup.setup          # imported, not re-done

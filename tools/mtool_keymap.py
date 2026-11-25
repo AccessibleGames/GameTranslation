@@ -40,6 +40,8 @@ from typing import Annotated, TypedDict
 from rpgmaker import cliutil, io_boundary
 from translation.codes import KANA_LETTERS_RE
 
+app = cliutil.app(help=__doc__)
+
 __all__ = [
     "build_keymap", "parse_patch_text", "validate_fragment",
     "collect_codes", "scan_containers", "key_id",
@@ -317,11 +319,6 @@ def _work_paths(work: str) -> dict:
     }
 
 
-def _read_jsonl(path: Path) -> list[dict]:
-    """Tolerant reader for the hand-appendable files in a work dir."""
-    return io_boundary.read_jsonl(path)
-
-
 def _fold(text: str) -> str:
     """Comparison form: NFKC (halfwidth katakana -> fullwidth), letters only.
 
@@ -353,6 +350,7 @@ def _is_one_term(sources: set) -> bool:
     return all(_is_subsequence(item, folded[-1]) for item in folded)
 
 
+@app.command("skip")
 def skip_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
              reason: Annotated[str, cliutil.Option(
                  help="why these keys are not translated")] = "editor metadata",
@@ -383,11 +381,11 @@ def skip_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     state = json.loads(paths["state"].read_text(encoding="utf-8"))
     scope = set(state.get("scope_buckets") or [])
     kinds = set(state.get("scope_kinds") or ["whole-field", "line-aligned"])
-    keymap = _read_jsonl(paths["keymap"])
+    keymap = io_boundary.read_jsonl(paths["keymap"])
     hosts = {record["container_id"]: record.get("source", "")
-             for record in _read_jsonl(paths["containers"])}
-    known = {record["key_id"] for record in _read_jsonl(paths["translated"])}
-    known |= {record["key_id"] for record in _read_jsonl(paths["skipped"])}
+             for record in io_boundary.read_jsonl(paths["containers"])}
+    known = {record["key_id"] for record in io_boundary.read_jsonl(paths["translated"])}
+    known |= {record["key_id"] for record in io_boundary.read_jsonl(paths["skipped"])}
 
     def matches(record: dict) -> bool:
         if pattern is not None and pattern.search(record["key"]):
@@ -431,6 +429,7 @@ def _kind_of(record: _LocatedKey, host: dict) -> str:
     return "sub-line"
 
 
+@app.command("build")
 def build_cmd(mtool: Annotated[str, cliutil.Argument(help="the game's runtime dictionary (MTool json)")],
               patch_dir: Annotated[str, cliutil.Argument(help="rewolf-trans patch tree (rewt-patch/)")],
               out_dir: Annotated[str, cliutil.Argument(help="work dir to write the keymap into")],
@@ -500,6 +499,7 @@ def _release(state: dict, batch: str) -> int:
     return len(removed)
 
 
+@app.command("release")
 def release_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                 batch: Annotated[str, cliutil.Option(
                     help="batch file whose reservation to drop")] = "",
@@ -532,6 +532,7 @@ def _fragment_count(units: list[dict]) -> int:
     return sum(len(unit["fragments"]) for unit in units)
 
 
+@app.command("slice")
 def slice_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
               buckets: Annotated[str, cliutil.Option(
                   help="comma-separated buckets to translate")] = "DB,COMMONEVENT",
@@ -616,6 +617,7 @@ def slice_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0
 
 
+@app.command("apply")
 def apply_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
               batch: Annotated[str, cliutil.Argument(help="translated batch file")],
               allow_kana_in_codes: Annotated[bool, cliutil.Option(
@@ -630,12 +632,12 @@ def apply_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     cliutil.own_paths("apply wolf batch", work=work, batch=batch)
     paths = _work_paths(work)
     payload = json.loads(Path(batch).read_text(encoding="utf-8"))
-    keymap = {record["key_id"]: record for record in _read_jsonl(paths["keymap"])}
-    existing = _read_jsonl(paths["translated"])
+    keymap = {record["key_id"]: record for record in io_boundary.read_jsonl(paths["keymap"])}
+    existing = io_boundary.read_jsonl(paths["translated"])
     known = {record["key_id"] for record in existing}
     # a decided-skip key is not translated on purpose: its answer in the batch is
     # irrelevant, and demanding a translation would contradict the skip
-    decided_skip = {record["key_id"] for record in _read_jsonl(paths["skipped"])}
+    decided_skip = {record["key_id"] for record in io_boundary.read_jsonl(paths["skipped"])}
     honoured = 0
     seen: set[str] = set()
     rows: list[dict] = []
@@ -759,6 +761,7 @@ def _restore_line_breaks(ja: str, zh: str) -> str:
     return fixed if missing == 0 else zh
 
 
+@app.command("answer")
 def answer_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                batch: Annotated[str, cliutil.Argument(help="batch file produced by slice")],
                answers: Annotated[str, cliutil.Argument(
@@ -899,6 +902,7 @@ def _font_gaps(font_path: Path, values: dict) -> list[str]:
             for char, keys in sorted(offenders.items(), key=lambda kv: -len(kv[1]))]
 
 
+@app.command("gates")
 def gates_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
               font: Annotated[str, cliutil.Option(
                   "--font", help="TTF/OTF of the build font: fail on any character "
@@ -914,8 +918,8 @@ def gates_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     state = json.loads(paths["state"].read_text(encoding="utf-8"))
     scope = set(state.get("scope_buckets") or [])
     kinds = set(state.get("scope_kinds") or ["whole-field", "line-aligned"])
-    keymap = _read_jsonl(paths["keymap"])
-    translated = _read_jsonl(paths["translated"])
+    keymap = io_boundary.read_jsonl(paths["keymap"])
+    translated = io_boundary.read_jsonl(paths["translated"])
     in_scope = [record for record in keymap
                 if record["bucket"] in scope
                 and record.get("kind") in kinds]
@@ -940,8 +944,8 @@ def gates_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
             continue
         bad.extend(f"{record_id}: {problem}"
                    for problem in validate_fragment(by_id[record_id]["key"], record["zh"]))
-    translate = {record["key_id"]: record["zh"] for record in _read_jsonl(paths["translated"])}
-    skipped = {record["key_id"] for record in _read_jsonl(paths["skipped"])}
+    translate = {record["key_id"]: record["zh"] for record in io_boundary.read_jsonl(paths["translated"])}
+    skipped = {record["key_id"] for record in io_boundary.read_jsonl(paths["skipped"])}
     missing = [record["key_id"] for record in in_scope
                if record["key_id"] not in translate and record["key_id"] not in skipped]
     unrenderable: list[str] = []
@@ -1002,6 +1006,7 @@ def _structure_score(ja: str, zh: str) -> int:
     return score
 
 
+@app.command("resolve")
 def resolve_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                 report: Annotated[str, cliutil.Option(
                     "--report", help="write the losing values here (JSONL)")] = "",
@@ -1020,8 +1025,8 @@ def resolve_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     cliutil.setup_logging(verbose, quiet, log_file)
     cliutil.own_paths("resolve wolf duplicates", work=work, report=report or work)
     paths = _work_paths(work)
-    keymap = {record["key_id"]: record for record in _read_jsonl(paths["keymap"])}
-    rows = _read_jsonl(paths["translated"])
+    keymap = {record["key_id"]: record for record in io_boundary.read_jsonl(paths["keymap"])}
+    rows = io_boundary.read_jsonl(paths["translated"])
     kind_rank = {"whole-field": 3, "line-aligned": 2, "sub-line": 1, "runtime": 0}
     grouped: dict[str, list[dict]] = defaultdict(list)
     order: list[str] = []
@@ -1064,6 +1069,7 @@ def resolve_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0
 
 
+@app.command("revise")
 def revise_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                answers: Annotated[str, cliutil.Argument(
                    help="JSONL of {\"id\": ..., \"zh\": ...} replacements")],
@@ -1084,8 +1090,8 @@ def revise_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     cliutil.setup_logging(verbose, quiet, log_file)
     cliutil.own_paths("revise wolf translations", work=work, answers=answers)
     paths = _work_paths(work)
-    keymap = {record["key_id"]: record for record in _read_jsonl(paths["keymap"])}
-    stored = _read_jsonl(paths["translated"])
+    keymap = {record["key_id"]: record for record in io_boundary.read_jsonl(paths["keymap"])}
+    stored = io_boundary.read_jsonl(paths["translated"])
     wanted: dict[str, str] = {}
     for number, line in enumerate(
             Path(answers).read_text(encoding="utf-8").splitlines(), 1):
@@ -1130,6 +1136,7 @@ def revise_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0
 
 
+@app.command("normalize")
 def normalize_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                   symbols: Annotated[str, cliutil.Argument(
                       help="JSON {\"from\": \"to\"} symbol substitutions")],
@@ -1150,7 +1157,7 @@ def normalize_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     if not isinstance(table, dict) or not all(
             isinstance(k, str) and isinstance(v, str) for k, v in table.items()):
         return cliutil.fail(f"{symbols}: expected a flat object of string -> string")
-    stored = _read_jsonl(paths["translated"])
+    stored = io_boundary.read_jsonl(paths["translated"])
     changed = 0
     counts: Counter[str] = Counter()
     for record in stored:
@@ -1174,6 +1181,7 @@ def normalize_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0
 
 
+@app.command("import-keys")
 def import_keys_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                     mtool: Annotated[str, cliutil.Argument(
                         help="the game's runtime dictionary (source of the keys)")],
@@ -1223,6 +1231,7 @@ def import_keys_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0
 
 
+@app.command("adopt-fields")
 def adopt_fields_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                      verbose: cliutil.Verbose = False,
                      quiet: cliutil.Quiet = False,
@@ -1270,6 +1279,7 @@ def adopt_fields_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0
 
 
+@app.command("terms")
 def terms_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
               glossary: Annotated[str, cliutil.Argument(
                   help="workspace glossary.json ({section: {ja: zh}})")],
@@ -1303,8 +1313,8 @@ def terms_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     payload = json.loads(Path(glossary).read_text(encoding="utf-8"))
     table = {ja: zh for section, entries in payload.items() if section != "meta"
              for ja, zh in entries.items()}
-    keymap = {record["key_id"]: record for record in _read_jsonl(paths["keymap"])}
-    stored = _read_jsonl(paths["translated"])
+    keymap = {record["key_id"]: record for record in io_boundary.read_jsonl(paths["keymap"])}
+    stored = io_boundary.read_jsonl(paths["translated"])
     drift: list[dict] = []
     for record in stored:
         source = keymap.get(record["key_id"], {}).get("key", record.get("key", ""))
@@ -1348,6 +1358,7 @@ def terms_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0 if not drift and not merged else 1
 
 
+@app.command("export")
 def export_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
                mtool: Annotated[str, cliutil.Argument(help="original dictionary (key order/source)")],
                out: Annotated[str, cliutil.Argument(help="dictionary to write")],
@@ -1367,8 +1378,8 @@ def export_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     cliutil.setup_logging(verbose, quiet, log_file)
     cliutil.own_paths("export wolf dictionary", work=work, mtool=mtool, out=out)
     paths = _work_paths(work)
-    translated = {record["key_id"]: record["zh"] for record in _read_jsonl(paths["translated"])}
-    decided = {record["key_id"] for record in _read_jsonl(paths["skipped"])}
+    translated = {record["key_id"]: record["zh"] for record in io_boundary.read_jsonl(paths["translated"])}
+    decided = {record["key_id"] for record in io_boundary.read_jsonl(paths["skipped"])}
     original = json.loads(Path(mtool).read_text(encoding="utf-8-sig"))
     out_dict: dict[str, str] = {}
     replaced = skipped_kept = undecided = 0
@@ -1395,23 +1406,6 @@ def export_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
         print("  deliberately skipped keys keep the game's original value on purpose; "
               "see skipped.jsonl for the reason of each")
     return 0
-
-
-app = cliutil.app(help=__doc__)
-app.command("build")(build_cmd)
-app.command("slice")(slice_cmd)
-app.command("release")(release_cmd)
-app.command("apply")(apply_cmd)
-app.command("answer")(answer_cmd)
-app.command("skip")(skip_cmd)
-app.command("terms")(terms_cmd)
-app.command("normalize")(normalize_cmd)
-app.command("import-keys")(import_keys_cmd)
-app.command("adopt-fields")(adopt_fields_cmd)
-app.command("revise")(revise_cmd)
-app.command("resolve")(resolve_cmd)
-app.command("gates")(gates_cmd)
-app.command("export")(export_cmd)
 
 
 def main(argv=None) -> int:

@@ -33,6 +33,8 @@ from . import bake as bake_mod
 from . import codes, mvkeys, rawlib, workspace
 from . import prefill as prefill_mod
 
+app = cliutil.app(help=__doc__)
+
 log = logging.getLogger(__name__)
 
 
@@ -41,6 +43,7 @@ def _note_tag_list(raw):
     return tuple(tag.strip() for tag in (raw or "").split(",") if tag.strip())
 
 
+@app.command()
 def prepare(
     game_dir: Annotated[str, cliutil.Argument(help="game directory (data/, js/)")],
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
@@ -69,6 +72,7 @@ def prepare(
     return 0
 
 
+@app.command()
 def extract(
     game_dir: Annotated[str, cliutil.Argument(help="game directory (data/, js/)")],
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
@@ -91,6 +95,7 @@ def extract(
     return 0
 
 
+@app.command()
 def scaffold(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     verbose: cliutil.Verbose = False,
@@ -108,6 +113,7 @@ def scaffold(
     return 0
 
 
+@app.command(name="codes")
 def codes_(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     verbose: cliutil.Verbose = False,
@@ -129,6 +135,7 @@ def codes_(
     return 0
 
 
+@app.command(name="to-json")
 def to_json(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     out: Annotated[str | None, cliutil.Option(
@@ -149,6 +156,7 @@ def to_json(
     return 0
 
 
+@app.command()
 def rewrite(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     verbose: cliutil.Verbose = False,
@@ -165,6 +173,7 @@ def rewrite(
     return 0
 
 
+@app.command()
 def gates(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     markdown: Annotated[str | None, cliutil.Option(
@@ -193,6 +202,7 @@ def gates(
     return 0 if report["ok"] else 1
 
 
+@app.command()
 def status(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     verbose: cliutil.Verbose = False,
@@ -207,6 +217,7 @@ def status(
     return 0
 
 
+@app.command(name="slice")
 def slice_(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     start: Annotated[int, cliutil.Option(
@@ -275,6 +286,7 @@ def slice_(
         "no keys in range (start=%d count=%d kind=%s)" % (start, count, kind))
 
 
+@app.command()
 def prefill(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     dict_path: Annotated[str, cliutil.Argument(
@@ -316,6 +328,7 @@ def prefill(
     return 0 if values else cliutil.fail("no key could be prefilled")
 
 
+@app.command()
 def append(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     batch: Annotated[str, cliutil.Option(
@@ -358,6 +371,7 @@ def append(
     return 0
 
 
+@app.command()
 def pending(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     why: Annotated[str, cliutil.Option(
@@ -387,6 +401,7 @@ def pending(
     return 0
 
 
+@app.command()
 def decide(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     reason: Annotated[str, cliutil.Option(
@@ -436,6 +451,7 @@ def decide(
     return 0
 
 
+@app.command(name="bake")
 def bake(
     game_dir: Annotated[str, cliutil.Argument(help="game directory to bake into")],
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
@@ -492,23 +508,6 @@ def bake(
         for key_id, why in report["skipped_detail"][:20]:
             log.error("skipped %s: %s", key_id, why)
     return 1 if report["skipped"] else 0
-
-
-app = cliutil.app(help=__doc__)
-app.command()(prepare)
-app.command()(extract)
-app.command()(scaffold)
-app.command(name="codes")(codes_)
-app.command(name="to-json")(to_json)
-app.command()(prefill)
-app.command()(rewrite)
-app.command()(gates)
-app.command()(status)
-app.command(name="slice")(slice_)
-app.command()(append)
-app.command()(pending)
-app.command()(decide)
-app.command(name="bake")(bake)
 
 
 def main(argv=None) -> int:

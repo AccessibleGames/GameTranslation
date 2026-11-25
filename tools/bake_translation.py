@@ -90,13 +90,9 @@ SYSTEM_TEXT_FIELDS = rpgmaker_constants.SYSTEM_TEXT_FIELDS
 SYSTEM_TEXT_ARRAYS = rpgmaker_constants.SYSTEM_TEXT_ARRAYS
 
 
-def is_event_container(data):
-    return rpgmaker_common.is_event_container(data)
+is_event_container = rpgmaker_common.is_event_container
 
-
-def ev_containers(data):
-    return rpgmaker_common.ev_containers(data)
-
+ev_containers = rpgmaker_common.ev_containers
 
 LOC_SEP = "\x1f"
 

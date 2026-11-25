@@ -340,8 +340,7 @@ def iter_command_lists(data):
                         yield pl
 
 
-def is_event_container(data):
-    return rpgmaker_common.is_event_container(data)
+is_event_container = rpgmaker_common.is_event_container
 
 
 def _translate_data_files(root, D, index):
@@ -808,7 +807,7 @@ def cmd(game_dir: Annotated[str, cliutil.Argument(help="source game folder")],
     return 0
 
 
-app = cliutil.command_app(cmd, help=__doc__)
+app = cliutil.command_app(cmd)
 
 
 def main(argv=None) -> int:

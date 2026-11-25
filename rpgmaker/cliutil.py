@@ -58,7 +58,6 @@ for a failure raised deep inside a helper.
 import logging
 import os
 import sys
-from types import FrameType
 from typing import Annotated
 
 import typer
@@ -69,7 +68,7 @@ from .platform import CrossSideError
 __all__ = ["app", "command_app", "run", "setup_logging", "fail",
            "own_paths",
            "Verbose", "Quiet", "LogFile", "JsonOut", "Argument", "Option",
-           "shared_options", "app_options"]
+           "shared_options"]
 
 #: ``-v`` / ``--verbose``: DEBUG diagnostics (per-file detail).
 Verbose = Annotated[bool, typer.Option(
@@ -162,44 +161,17 @@ def shared_options(verbose: Verbose = False, quiet: Quiet = False,
     setup_logging(verbose, quiet, log_file)
 
 
-def app_options(application):
-    """Attach the shared top-level options to `application`; returns it.
-
-    Keeps the assembly in one line at each entry point, so a new app cannot
-    forget the logging options or wire them differently.
-    """
-    application.callback()(shared_options)
-    return application
-
-
-def app(help=None, no_args_is_help=True):
-    """A Typer app with the toolkit's conventions.
-
-    ``help`` defaults to the module docstring of the caller; shell completion
-    stays off because these tools are run by hand or from the pipeline.
-
-    ``rich_markup_mode=None`` is deliberate: the default (``"rich"``) parses
-    square brackets in help text as style tags, so a tool documenting
-    ``[iscript]`` blocks or ``[l]`` line tags would print them mangled.
-    """
-    if help is None:
-        help = _caller_doc()
-    return typer.Typer(help=help, no_args_is_help=no_args_is_help,
+def app(help=None, no_args_is_help=True, *, callback=None):
+    """Create a Typer app with the project's help and completion settings."""
+    return typer.Typer(help=help, callback=callback, no_args_is_help=no_args_is_help,
                        add_completion=False, rich_markup_mode=None)
 
 
 def command_app(fn, help=None):
-    """A one-command app wrapping `fn` (the common case for a tool).
-
-    The text is attached to the *command* as well as to the app: for a single
-    command Typer renders the command's own docstring, so without this the
-    tool's module docstring would only show up for multi-command apps.
-    """
+    """Register one command using explicit help or the function docstring."""
     text = help if help is not None else fn.__doc__
-    if text and not fn.__doc__:
-        fn.__doc__ = text
     application = app(help=text)
-    application.command()(fn)
+    application.command(help=text)(fn)
     return application
 
 
@@ -279,15 +251,4 @@ def _error_code(exc):
         return exc.exit_code
     if exc.__class__.__name__ == "Abort":
         return 1
-    return None
-
-
-def _caller_doc():
-    """Docstring of the module that called app() (its __doc__ is the help)."""
-    frame: FrameType | None = sys._getframe(1)
-    while frame is not None:
-        module = frame.f_globals.get("__name__", "")
-        if not module.startswith("rpgmaker"):
-            return frame.f_globals.get("__doc__")
-        frame = frame.f_back
     return None

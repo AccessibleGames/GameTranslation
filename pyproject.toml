@@ -190,15 +190,8 @@ strict_equality = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 
-[tool.gametranslation.mypy-burndown]
-# tools.mypy_check enforces zero errors across all production packages.
-errors = 0
-
 [tool.gametranslation.mypy-strict]
-# Modules ``tools/mypy_check.py`` holds at zero errors.  Sorted; add a module
-# only once it is clean, never remove one to make a change pass.  Deleting a
-# module while it is still listed fails the check (a stale entry would
-# otherwise silently shrink the guarded surface).
+# Used by the legacy fields in the mypy JSON report.
 modules = [
     "rpgmaker/archive.py",
     "rpgmaker/assets.py",

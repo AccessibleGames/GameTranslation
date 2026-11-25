@@ -27,6 +27,8 @@ import typer
 
 from rpgmaker import cliutil, platform
 
+app = cliutil.app(help=__doc__)
+
 log = logging.getLogger("xp3tool")
 
 MAGIC = b"XP3\r\n \n\x1a\x8b\x67\x01"
@@ -398,6 +400,7 @@ def protected_variant_reason(path, entries=None):
             % (path, nameless, len(entries), checked))
 
 
+@app.command(name="list")
 def cmd_list(xp3: Annotated[str, cliutil.Argument(help="xp3 archive")],
              force: Annotated[bool, typer.Option(
                  "--force",
@@ -413,6 +416,7 @@ def cmd_list(xp3: Annotated[str, cliutil.Argument(help="xp3 archive")],
     return _guarded(list_entries, xp3)
 
 
+@app.command(name="extract")
 def cmd_extract(xp3: Annotated[str, cliutil.Argument(help="xp3 archive")],
                 outdir: Annotated[str, cliutil.Argument(help="output directory")],
                 force: Annotated[bool, typer.Option(
@@ -452,11 +456,6 @@ def _guarded(action, *action_args):
         log.error("%s", exc)
         return 1
     return 0
-
-
-app = cliutil.app(help=__doc__)
-app.command(name="list")(cmd_list)
-app.command(name="extract")(cmd_extract)
 
 
 def main(argv=None) -> int:

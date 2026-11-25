@@ -30,6 +30,8 @@ from typing import Annotated
 
 from rpgmaker import cliutil, io_boundary
 
+app = cliutil.app(help=__doc__)
+
 log = logging.getLogger("tyrano.ui_lang")
 
 LANG_REL = os.path.join("tyrano", "lang.js")
@@ -198,6 +200,7 @@ def _resolve(path):
     return lang
 
 
+@app.command(name="dump", help="list the engine UI strings")
 def cmd_dump(game: Annotated[str, cliutil.Argument(
         help="build folder or a path to tyrano/lang.js")],
         out: Annotated[str | None, cliutil.Option(
@@ -227,6 +230,7 @@ def cmd_dump(game: Annotated[str, cliutil.Argument(
     return 0
 
 
+@app.command(name="apply", help="apply a {key: translation} JSON")
 def cmd_apply(game: Annotated[str, cliutil.Argument(
         help="build folder or a path to tyrano/lang.js")],
         mapping: Annotated[str | None, cliutil.Option(
@@ -261,11 +265,6 @@ def cmd_apply(game: Annotated[str, cliutil.Argument(
         return cliutil.fail("%d entries refused; lang.js left unchanged for "
                             "them" % len(report["refused"]))
     return 0
-
-
-app = cliutil.app(help=__doc__)
-app.command(name="dump", help="list the engine UI strings")(cmd_dump)
-app.command(name="apply", help="apply a {key: translation} JSON")(cmd_apply)
 
 
 def main(argv=None) -> int:

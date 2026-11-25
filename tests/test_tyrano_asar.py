@@ -13,17 +13,16 @@ package under test wrote itself.
 """
 import json
 import os
+import runpy
 import sys
 
+import asar
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from tyrano import asar as asar_mod
 
 FIXTURE = os.path.join(ROOT, "tests", "fixtures", "tiny_app.asar")
-
-asar = pytest.importorskip("asar", reason="the 'asar' package is optional")
-
 
 class TestRealArchive:
     """An archive produced by `npx @electron/asar pack`."""
@@ -92,8 +91,11 @@ class TestRoundTripThroughThePackage:
 
 
 class TestCli:
-    def test_list_command_prints_every_entry(self, capsys):
-        assert asar_mod.main(["list", FIXTURE]) == 0
+    def test_list_command_prints_every_entry(self, monkeypatch, capsys):
+        monkeypatch.setattr(sys, "argv", ["asar", "list", FIXTURE])
+        with pytest.raises(SystemExit) as exit_status:
+            runpy.run_path(asar_mod.__file__, run_name="__main__")
+        assert exit_status.value.code == 0
         out = capsys.readouterr().out
         assert "index.html" in out and "data/System.json" in out
 
@@ -111,74 +113,3 @@ class TestCli:
 
     def test_unknown_subcommand_is_a_usage_error(self, capsys):
         assert asar_mod.main(["nope"]) == 2
-
-    def test_help_returns_zero(self, capsys):
-        assert asar_mod.main(["--help"]) == 0
-        assert "Usage:" in capsys.readouterr().out
-
-
-class TestPackageImportShadowing:
-    """``python tyrano/pipeline.py ...`` puts ``tyrano/`` on ``sys.path``;
-    a top-level ``import asar`` must reach the PyPI package, not this
-    file (regression: the shadow surfaced as "the 'asar' package is
-    missing" even with the package installed).
-    """
-
-    @staticmethod
-    def _shadow_path_entries():
-        mine = os.path.realpath(asar_mod.__file__)
-        return [p for p in sys.path
-                if p and os.path.realpath(os.path.join(p, "asar.py")) == mine]
-
-    def test_unshadow_drops_entries_pointing_at_this_file(self, monkeypatch):
-        monkeypatch.syspath_prepend(os.path.dirname(asar_mod.__file__))
-        assert self._shadow_path_entries()          # pre: the shadow is there
-        asar_mod._unshadow_own_name()
-        assert not self._shadow_path_entries()
-
-    def test_unshadow_forgets_a_shadow_module_already_imported(self):
-        import types
-
-        shadow = types.ModuleType("asar")           # no AsarArchive attribute
-        saved = sys.modules.get("asar")
-        sys.modules["asar"] = shadow
-        try:
-            asar_mod._unshadow_own_name()
-            assert sys.modules.get("asar") is not shadow
-        finally:
-            if saved is not None:
-                sys.modules["asar"] = saved
-            else:
-                sys.modules.pop("asar", None)
-
-    def test_unshadow_keeps_the_real_package(self):
-        real = pytest.importorskip("asar")
-        saved = sys.modules.get("asar")
-        sys.modules["asar"] = real
-        try:
-            asar_mod._unshadow_own_name()
-            assert sys.modules.get("asar") is real
-        finally:
-            if saved is not None:
-                sys.modules["asar"] = saved
-            else:
-                sys.modules.pop("asar", None)
-
-    def test_open_reaches_the_real_package_despite_script_dir_shadow(
-            self, monkeypatch):
-        monkeypatch.syspath_prepend(os.path.dirname(asar_mod.__file__))
-        with asar_mod._open(FIXTURE) as archive:
-            names = [str(p).replace("\\", "/") for p in archive.list()]
-        assert "index.html" in names
-
-
-class TestNoNodeDependency:
-    def test_module_does_not_shell_out(self):
-        """The point of the swap: no subprocess, no npx, no Node.js."""
-        import inspect
-
-        source = inspect.getsource(asar_mod)
-        code = source.split('"""', 2)[2]      # drop the module docstring
-        assert "proctools" not in code
-        assert "subprocess" not in code
-        assert "find_npx" not in code

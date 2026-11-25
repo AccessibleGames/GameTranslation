@@ -69,7 +69,7 @@ def cmd(cn_font: Annotated[str, cliutil.Argument(
     return 0
 
 
-app = cliutil.command_app(cmd, help=__doc__)
+app = cliutil.command_app(cmd)
 
 
 def main(argv=None) -> int:

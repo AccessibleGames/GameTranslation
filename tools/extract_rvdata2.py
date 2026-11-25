@@ -61,9 +61,7 @@ def log(msg):
     print(msg, flush=True)
 
 
-def ev_containers(data):
-    """Events from a map/CommonEvents object (VX Ace events = dict)."""
-    return rpgmaker_common.rvdata2_ev_containers(data)
+ev_containers = rpgmaker_common.rvdata2_ev_containers
 
 
 def is_map_file(fname):
@@ -418,7 +416,7 @@ def cmd(game_dir: Annotated[str, cliutil.Argument(help="source game folder")],
     return 0
 
 
-app = cliutil.command_app(cmd, help=__doc__)
+app = cliutil.command_app(cmd)
 
 
 def main(argv=None) -> int:

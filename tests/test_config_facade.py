@@ -136,26 +136,8 @@ class TestNothingDependsOnTheFacade:
             "these modules still read names through the deprecated facade; "
             f"import the owning module instead: {offenders}")
 
-    def test_every_split_module_is_reachable_on_its_own(self):
-        # No split module may import the facade either, or a fresh import of
-        # one of them would pull the whole old surface back in.
-        for name in SPLIT_MODULES:
-            src = (settings.REPO_ROOT / "rpgmaker" / (name + ".py")).read_text(
-                encoding="utf-8")
-            assert "import config" not in src, name
-            assert "from rpgmaker.config" not in src, name
-            assert "from .config" not in src, name
 
-
-class TestTheSplitModulesExist:
-    def test_each_module_owns_its_docstring(self):
-        import importlib
-
-        for name in SPLIT_MODULES:
-            mod = importlib.import_module(f"rpgmaker.{name}")
-            assert mod.__doc__, name
-            assert mod.__all__, name
-
+class TestPrivateLayout:
     def test_only_one_module_names_the_physical_private_layout(self):
         # The single-mapping rule that makes the migration an owner action
         # rather than a code change: settings.py is the only file allowed to

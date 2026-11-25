@@ -162,9 +162,6 @@ def cmd(merged_json: Annotated[str, cliutil.Argument(
 
 
 app = cliutil.command_app(cmd, help=__doc__)
-# argparse used the module docstring as the command description; keep that
-# visible in --help (a collapsed single-command app shows the command help).
-cmd.__doc__ = __doc__
 
 
 def main(argv=None) -> int:

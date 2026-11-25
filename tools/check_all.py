@@ -99,7 +99,7 @@ GATES: tuple = (
     ),
     Gate(
         "types",
-        "mypy budgets: error count flat or falling, strict modules at zero",
+        "mypy checks every production package",
         lambda root: [sys.executable, "-m", "tools.mypy_check"],
         needs=("mypy",),
     ),
@@ -316,7 +316,7 @@ def cmd(repo: Annotated[str, typer.Option(
     return 0
 
 
-app = cliutil.command_app(cmd, help=__doc__)
+app = cliutil.command_app(cmd)
 
 
 def main(argv=None) -> int:

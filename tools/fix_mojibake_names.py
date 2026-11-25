@@ -164,7 +164,6 @@ def cmd(root: Annotated[str, cliutil.Argument(
 
 
 app = cliutil.command_app(cmd, help=__doc__)
-cmd.__doc__ = __doc__
 
 
 def main(argv=None) -> int:

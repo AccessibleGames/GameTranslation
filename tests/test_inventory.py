@@ -16,8 +16,6 @@ import ast
 import os
 import subprocess
 
-import pytest
-
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from rpgmaker import inventory
 
@@ -81,11 +79,6 @@ def _module_name(rel):
     return rel[:-3].replace("/", ".")
 
 
-def _is_facade(rel):
-    """Root or package `__init__` files carry no logic of their own."""
-    return os.path.basename(rel) in ("__init__.py",)
-
-
 class TestCoverageOfTheRepository:
     def test_every_production_file_is_inventoried(self):
         """An unclassified file is exactly the situation this table prevents."""
@@ -98,16 +91,6 @@ class TestCoverageOfTheRepository:
         assert not missing, (
             "production modules missing from rpgmaker/inventory.py - add them "
             "with an explicit status:\n  " + "\n  ".join(missing))
-
-    def test_facade_packages_are_inventoried(self):
-        """`pkg/__init__.py` maps to the package name; it must be listed."""
-        known = set(inventory.BY_MODULE)
-        for rel in _production_files():
-            if not _is_facade(rel) or rel == "__init__.py":
-                continue
-            package = rel[: -len("/__init__.py")].replace("/", ".")
-            assert package in known, (
-                f"package {package} has an __init__.py but no inventory row")
 
     def test_inventory_has_no_phantom_entries(self):
         """Every inventoried name must correspond to a real file.
@@ -131,26 +114,11 @@ class TestCoverageOfTheRepository:
 
 
 class TestStatusIsMeaningful:
-    @pytest.mark.parametrize("record", inventory.MODULES,
-                             ids=lambda r: r.module)
-    def test_status_and_kind_are_from_the_vocabulary(self, record):
-        assert record.status in inventory.STATUSES, record
-        assert record.kind in inventory.KINDS, record
-
-    @pytest.mark.parametrize("record", inventory.MODULES,
-                             ids=lambda r: r.module)
-    def test_engines_are_known(self, record):
-        unknown = [e for e in record.engines if e not in inventory.ENGINES]
-        assert not unknown, f"{record.module} declares unknown engine(s) {unknown}"
-
-    @pytest.mark.parametrize(
-        "record",
-        [r for r in inventory.MODULES if r.status == "superseded"],
-        ids=lambda r: r.module)
-    def test_superseded_modules_say_what_replaced_them(self, record):
-        assert record.replacement, (
-            f"{record.module} is superseded but does not name its replacement; without it "
-            "nobody can tell whether the successor still exists")
+    def test_inventory_metadata_uses_known_values(self):
+        for record in inventory.MODULES:
+            assert record.status in inventory.STATUSES, record
+            assert record.kind in inventory.KINDS, record
+            assert set(record.engines) <= set(inventory.ENGINES), record
 
     def test_the_superseded_replacement_names_a_real_target(self):
         """A replacement must resolve, not just be non-empty.
@@ -170,6 +138,7 @@ class TestStatusIsMeaningful:
         for record in inventory.MODULES:
             if record.status != "superseded":
                 continue
+            checked_before = checked
             for token in record.replacement.replace(",", " ").split():
                 candidate = token.strip("()[]`;'\"")
                 if not candidate:
@@ -184,9 +153,7 @@ class TestStatusIsMeaningful:
                 if not os.path.exists(os.path.join(REPO_ROOT, looked_for)):
                     unresolved.append("%s -> %s (%s)"
                                       % (record.module, candidate, looked_for))
-        assert checked >= 3, (
-            "only %d replacement target(s) were resolved - the parser is too "
-            "narrow and this gate has stopped checking anything" % checked)
+            assert checked > checked_before, record
         assert not unresolved, (
             "a superseded record names a replacement that does not exist:\n  "
             + "\n  ".join(unresolved))

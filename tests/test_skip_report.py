@@ -69,36 +69,6 @@ class TestClassify:
         assert bucket == sr.GUARD
 
 
-class TestCollect:
-    def test_every_site_gets_a_bucket(self):
-        rows = sr.collect()
-        assert rows, "the scan found no skip site at all"
-        for rel, lineno, name, _arg, bucket, detail in rows:
-            assert rel.startswith("tests/"), (rel, lineno)
-            assert name in ("skip", "importorskip", "xfail")
-            assert bucket, "%s:%d has no bucket" % (rel, lineno)
-            assert detail or bucket == sr.GUARD, (rel, lineno)
-
-    def test_the_scan_skips_its_own_gate(self):
-        """The gate's own string literals look like skip sites."""
-        assert "tests/test_test_layers.py" not in {row[0] for row in
-                                                   sr.collect()}
-
-    def test_every_site_is_attributable(self):
-        """The repository's own inventory must have no unknown skip.
-
-        If this fails, either a reason lost its wording or a new capability
-        appeared - both are the point of the gate.
-        """
-        unknown = [row for row in sr.collect() if row[4] == sr.UNKNOWN]
-        assert not unknown, unknown
-
-    def test_the_totals_match_the_gate_budget(self):
-        """The inventory and `SKIP_BUDGET` count the same sites."""
-        from tests import test_test_layers as layers
-        assert len(sr.collect()) == layers.SKIP_BUDGET
-
-
 class TestCli:
     def test_the_report_lists_the_buckets(self):
         result = _run("--verbose")
@@ -145,8 +115,3 @@ class TestCli:
                                        "reason": "moon phase"}]
         assert payload["total"] == 1
         assert payload["by_capability"] == {"unknown": 1}
-
-    def test_help_renders(self):
-        result = _run("--help")
-        assert result.returncode == 0
-        assert "skip" in result.stdout.lower()

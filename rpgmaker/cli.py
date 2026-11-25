@@ -33,12 +33,14 @@ from rpgmaker import compress as compress_mod
 
 log = logging.getLogger("rpgmaker.cli")
 
-app = cliutil.app(help="RPG Maker MZ/MV: unpack, clean, package, deliver.")
-tyrano = cliutil.app(help="TyranoScript / TyranoBuilder: clean, localize, package, deliver.")
-
-# One definition of -v/-q/--log-file for both apps (rpgmaker/cliutil.py).
-cliutil.app_options(app)
-cliutil.app_options(tyrano)
+app = cliutil.app(
+    help="RPG Maker MZ/MV: unpack, clean, package, deliver.",
+    callback=cliutil.shared_options,
+)
+tyrano = cliutil.app(
+    help="TyranoScript / TyranoBuilder: clean, localize, package, deliver.",
+    callback=cliutil.shared_options,
+)
 
 
 def resolve_web_root(game_dir: str) -> str:

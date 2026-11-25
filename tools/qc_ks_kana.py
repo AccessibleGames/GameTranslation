@@ -103,10 +103,6 @@ def cmd(values: Annotated[str | None, cliutil.Option(
     return 0
 
 
-# --help prints the tool's full documentation: a single-command Typer app
-# shows the COMMAND docstring, so the module docstring is attached to it
-# (the argparse version printed the same text as its description).
-cmd.__doc__ = __doc__
 app = cliutil.command_app(cmd, help=__doc__)
 
 

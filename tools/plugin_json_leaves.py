@@ -49,6 +49,8 @@ from rpgmaker import cliutil, plugins_io
 from rpgmaker import japanese as japanese_utils
 from tools import plain_io
 
+app = cliutil.app(help=__doc__)
+
 KANA = japanese_utils.KANA
 CJK = re.compile(r"[\u4e00-\u9fff]")
 BACKTICK = re.compile(r"`([^`]*)`")
@@ -280,6 +282,7 @@ def collect_blob_leaves(blob, exempt, out_leaves, warns, plugin=None,
     return n
 
 
+@app.command(name="extract")
 def cmd_extract(game_dir: Annotated[str, cliutil.Argument(
             help="game directory (js/plugins.js)")],
         work_dir: Annotated[str, cliutil.Argument(help="output work dir")],
@@ -341,6 +344,7 @@ def cmd_extract(game_dir: Annotated[str, cliutil.Argument(
     return 0
 
 
+@app.command(name="rebuild")
 def cmd_rebuild(game_dir: Annotated[str, cliutil.Argument(
             help="game directory (js/plugins.js)")],
         work_dir: Annotated[str, cliutil.Argument(help="work dir")],
@@ -412,6 +416,7 @@ def cmd_rebuild(game_dir: Annotated[str, cliutil.Argument(
     return 0
 
 
+@app.command(name="apply")
 def cmd_apply(game_dir: Annotated[str, cliutil.Argument(
             help="game directory (js/plugins.js) to patch")],
         work_dir: Annotated[str, cliutil.Argument(
@@ -475,12 +480,6 @@ def cmd_apply(game_dir: Annotated[str, cliutil.Argument(
     bake_mod.save_plugin_params(game_dir, plugins, prefix, suffix)
     print("written (backup js/plugins.js.bak)")
     return 0
-
-
-app = cliutil.app(help=__doc__)
-app.command(name="extract")(cmd_extract)
-app.command(name="rebuild")(cmd_rebuild)
-app.command(name="apply")(cmd_apply)
 
 
 def main(argv=None) -> int:

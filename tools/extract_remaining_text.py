@@ -64,13 +64,10 @@ def log(msg):
     print(msg, flush=True)
 
 
-def ev_containers(data):
-    return rpgmaker_common.ev_containers(data)
+ev_containers = rpgmaker_common.ev_containers
 
 
-def is_event_container(data):
-    return rpgmaker_common.is_event_container(data)
-
+is_event_container = rpgmaker_common.is_event_container
 
 talk_lines = rpgmaker_common.talk_lines
 
@@ -466,7 +463,7 @@ def cmd(game_dir: Annotated[str, cliutil.Argument(help="source game folder")],
     return 0
 
 
-app = cliutil.command_app(cmd, help=__doc__)
+app = cliutil.command_app(cmd)
 
 
 def main(argv=None) -> int:
