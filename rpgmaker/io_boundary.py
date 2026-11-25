@@ -1,51 +1,8 @@
 #!/usr/bin/env python3
-"""Shared I/O boundary: how bytes become visible to a reader (core).
+"""UTF-8 file formats and atomic replacement for toolkit outputs.
 
-Why this exists
----------------
-This module is the one I/O boundary: paths, encoding, JSON, atomic write,
-backup and log context.  Before it the repository had **three**
-near-copies of "tolerate a BOM when loading JSON", a dozen hand-rolled
-`json.dumps({"..."}, ensure_ascii=False, indent=1) + "\n"` blocks with
-slightly different punctuation, and exactly **one** write that was atomic
-(`rpgmaker/audio.py`, which needed it because a half-written `.ogg` is an
-unplayable file).  The rest wrote straight over their target.
-
-That last point is the failure this module exists for.  Every state file in
-the translation flow - `pending.jsonl`, the library, `keys.jsonl`, `stats.json`
-- is *read back by the next command in the chain*, and an interrupted writer
-leaves a truncated file that parses as something plausible: a JSON file cut
-mid-object raises, but a JSONL file cut mid-line silently loses exactly the
-entries the translator had just spent hours on.  `rawlib.read_jsonl_report`
-already carries the scar of the read side of this problem; this is the write
-side.
-
-The contract
-------------
-* :func:`write_text` and :func:`dump_json` **never leave a partially written
-  target visible**: bytes go to a temporary file in the *same directory* as
-  the target and are published with a single `os.replace`, which is atomic on
-  both NTFS and POSIX filesystems.  The temporary file is removed on any
-  failure, so a failed write leaves the previous content intact rather than a
-  stray `.gt-tmp-*` file next to it.
-* The temporary lands beside the target, *not* in the system temp directory.
-  `os.replace` across filesystems raises `OSError: [Errno 18] Invalid
-  cross-device link`, and `%TEMP%` is very often on another drive than the
-  file being written - this is why the temp directory is not a parameter.
-* Encoding is always explicit and never locale-dependent.  A UTF-8 file is
-  written as UTF-8 with `newline="\\n"` regardless of platform, because these
-  files are compared byte-for-byte by the build gates and shared with WSL.
-* A **BOM is accepted on read and never written**.  Both halves matter: the
-  BOM shows up because these files are hand-edited on Windows, and a writer
-  that re-adds one changes the bytes of a file it was only supposed to edit
-  (the reason `rpgmaker/plugincompat.py` keeps a comment about exactly this).
-* Reading is tolerant, writing is exact.  `load_json` strips a BOM;
-  `read_jsonl` skips blank lines and reports a bad line as a *failure* rather
-  than silently dropping it (see `translation/rawlib.py` for why an empty
-  result must not be distinguishable from a clean one).
-
-Not in scope: `pathlib` adoption and log context, which already has
-its single entry point in `rpgmaker/logsetup.py` (`logsetup.phase`).
+Write temporary files beside their destination so publication uses a single
+same-filesystem rename. Half-written outputs remain invisible to readers.
 """
 
 import contextlib
@@ -62,6 +19,7 @@ __all__ = [
     "dump_json",
     "load_json",
     "load_text",
+    "open_atomic",
     "read_jsonl",
     "write_text",
 ]
@@ -72,12 +30,6 @@ BOM = "\ufeff"
 
 
 def _prepare_target(path: str, ensure_parent: bool) -> str:
-    """Validate a write target and return it as a `str`.
-
-    `ensure_parent` is not a parameter of `os.replace` but of every call site:
-    the alternative is each caller remembering `os.makedirs` first, and the
-    ones that forget fail only on a fresh work directory.
-    """
     text = os.fspath(path)
     parent = os.path.dirname(text)
     if parent and ensure_parent:
@@ -85,42 +37,32 @@ def _prepare_target(path: str, ensure_parent: bool) -> str:
     return text
 
 
-def _atomic(path: str, payload: str, encoding: str, durable: bool) -> None:
-    """Publish `payload` at `path` with a single `os.replace`.
-
-    The temp file is created in the target's own directory so the replace
-    cannot cross a filesystem boundary, and it inherits the target's mode when
-    the target already exists - a rewrite must not silently change permissions
-    on someone else's file.
-
-    `durable` additionally fsyncs the bytes before publishing.  Atomicity (a
-    reader never sees a truncated file) is unconditional and is what the call
-    sites need; crash durability is a different guarantee, and paying a
-    `FlushFileBuffers` per file on Windows in a loop over hundreds of game
-    data files is a real cost, so it is opt-in.
-    """
-    directory = os.path.dirname(path) or "."
-    handle, tmp = tempfile.mkstemp(dir=directory, prefix=".gt-tmp-",
-                                   suffix=os.path.basename(path))
+@contextlib.contextmanager
+def open_atomic(path, *, encoding: str | None = None, ensure_parent: bool = True,
+                durable: bool = False):
+    """Yield a binary stream, or an LF text stream when encoding is given."""
+    target = _prepare_target(path, ensure_parent)
+    directory = os.path.dirname(target) or "."
+    fd, temporary = tempfile.mkstemp(dir=directory, prefix=".gt-tmp-")
     try:
-        with os.fdopen(handle, "w", encoding=encoding, newline="\n") as f:
-            f.write(payload)
-            if durable:
-                f.flush()
-                os.fsync(f.fileno())
+        try:
+            mode = "wb" if encoding is None else "w"
+            newline = None if encoding is None else "\n"
+            with os.fdopen(fd, mode, encoding=encoding, newline=newline,
+                           closefd=False) as stream:
+                yield stream
+                if durable:
+                    stream.flush()
+                    os.fsync(fd)
+        finally:
+            os.close(fd)
+        # Preserve an existing target's mode where the filesystem allows it.
         with contextlib.suppress(OSError):
-            # No existing target (a first write) or a filesystem that refuses
-            # chmod: the temp keeps its 0600 default, which is not worth
-            # failing a build over.  Windows takes its mode bits from the ACL.
-            os.chmod(tmp, os.stat(path).st_mode)
-        os.replace(tmp, path)
-    except BaseException:
-        # `BaseException`, not `Exception`: a KeyboardInterrupt mid-write is
-        # exactly the interrupted-writer case this function exists to keep
-        # clean, and it must not leave the temporary behind either.
+            os.chmod(temporary, os.stat(target).st_mode)
+        os.replace(temporary, target)
+    finally:
         with contextlib.suppress(OSError):
-            os.remove(tmp)
-        raise
+            os.unlink(temporary)
 
 
 def load_text(path: str, encoding: str = "utf-8-sig") -> str:
@@ -148,9 +90,10 @@ def load_json(path: str):
 def write_text(path, text, *, encoding: str = "utf-8", ensure_parent: bool = True,
                durable: bool = False) -> str:
     """Write `text` atomically as LF-terminated UTF-8.  Returns the path."""
-    target = _prepare_target(path, ensure_parent)
-    _atomic(target, text, encoding, durable)
-    return target
+    with open_atomic(path, encoding=encoding, ensure_parent=ensure_parent,
+                     durable=durable) as handle:
+        handle.write(text)
+    return os.fspath(path)
 
 
 def append_text(path, text, *, encoding: str = "utf-8",
@@ -219,9 +162,10 @@ def read_jsonl(path) -> list:
     return records
 
 
-def append_jsonl(path, record) -> str:
+def append_jsonl(path, record, *, ensure_parent: bool = True) -> str:
     """Append one object as a single LF-terminated line.  Returns the path."""
-    return append_text(path, json.dumps(record, ensure_ascii=False) + "\n")
+    return append_text(path, json.dumps(record, ensure_ascii=False) + "\n",
+                       ensure_parent=ensure_parent)
 
 
 def backup_file(source, backup_root, rel=None) -> str | None:

@@ -33,7 +33,7 @@ import struct
 import zlib
 from typing import Annotated
 
-from rpgmaker import cliutil, platform
+from rpgmaker import cliutil, io_boundary, platform
 
 log = logging.getLogger("xp3pack")
 
@@ -80,25 +80,24 @@ def adler32_stream(path, chunk_size=1 << 20):
     return adler & 0xFFFFFFFF
 
 
-def build_index(entries):
-    """Index block bytes for [(name, start, size, adler)]; one raw segment each.
+def _index_chunk(tag: bytes, payload: bytes) -> bytes:
+    return struct.pack("<4sq", tag, len(payload)) + payload
 
-    Each File chunk holds 'info' (flags, org size, arc size, UTF-16LE name),
-    'segm' (one raw segment) and 'adlr' (the Adler-32) - in that order, which
-    is what real games' archives carry.
-    """
+
+def build_index(entries):
+    """Encode File records with one uncompressed segment each."""
     out = bytearray()
     for name, start, size, adler in entries:
         name_bytes = name.encode("utf-16-le")
-        info = struct.pack("<IQQH", 0, size, size, len(name)) + name_bytes
-        segm = struct.pack("<IQqQ", 0, start, size, size)
-        adlr = struct.pack("<I", adler & 0xFFFFFFFF)
-        file_chunk = (b"File" + struct.pack("<q", 12 + len(info) + 12 + len(segm)
-                                            + 12 + len(adlr))
-                      + b"info" + struct.pack("<q", len(info)) + info
-                      + b"segm" + struct.pack("<q", len(segm)) + segm
-                      + CH_ADLR + struct.pack("<q", len(adlr)) + adlr)
-        out += file_chunk
+        # XP3 stores the number of UTF-16 code units, including surrogate pairs.
+        info = struct.pack("<IQQH", 0, size, size, len(name_bytes) // 2) + name_bytes
+        segment = struct.pack("<IQqQ", 0, start, size, size)
+        checksum = struct.pack("<I", adler & 0xFFFFFFFF)
+        out.extend(_index_chunk(b"File", b"".join((
+            _index_chunk(b"info", info),
+            _index_chunk(b"segm", segment),
+            _index_chunk(CH_ADLR, checksum),
+        ))))
     return bytes(out)
 
 
@@ -111,27 +110,27 @@ def pack(in_dir, out_path, zlib_level=9):
                                               out_path=out_path)
     in_dir = str(own_paths["in_dir"])
     out_path = str(own_paths["out_path"])
-    files = collect_files(in_dir)
+    output = os.path.normcase(out_path)
+    files = [(rel, full) for rel, full in collect_files(in_dir)
+             if os.path.normcase(full) != output]
     if not files:
         raise Xp3PackError(f"nothing to pack in {in_dir}")
 
     entries = []
-    with open(out_path, "wb") as out:
+    with io_boundary.open_atomic(out_path, ensure_parent=False) as out:
         out.write(MAGIC)
         out.write(struct.pack("<q", 0))  # index pointer, patched below
         ofs = HEADER_SIZE + PTR_SIZE
         for rel, full in files:
-            size = os.path.getsize(full)
+            size = 0
             adler = 1
             with open(full, "rb") as src:
                 # streamed so a large payload is never held in memory, and
                 # the Adler-32 is computed while copying (adler32 is
                 # incremental, so chunked == whole-file)
-                while True:
-                    chunk = src.read(1 << 20)
-                    if not chunk:
-                        break
+                while chunk := src.read(1 << 20):
                     out.write(chunk)
+                    size += len(chunk)
                     adler = zlib.adler32(chunk, adler)
             entries.append((rel, ofs, size, adler & 0xFFFFFFFF))
             ofs += size

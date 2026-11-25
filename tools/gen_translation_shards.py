@@ -48,7 +48,7 @@ fresh chunks numbered from --start.  Keeps story-map order.
 
 Tone: the game-owner tone/character/terminology block is injected from
 `<work_dir>/tone.md` when present. Without tone.md a neutral fallback is used
-— never a hardcoded previous-game tone (see docs/translation.md).
+— never a hardcoded previous-game tone.
 
 Glossary: `<work_dir>/glossary.json` {name/term: translation} — negotiated
 once with the game owner, afterwards maintained ONLY through the edit tool

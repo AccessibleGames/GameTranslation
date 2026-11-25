@@ -7,6 +7,7 @@ up whatever it touches.
 """
 import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -305,6 +306,60 @@ def test_required_without_a_usable_font_is_a_bake_error(tmp_path):
                       repo_root=str(tmp_path / "no-such-repo"))
 
 
+def test_required_font_failure_does_not_write_translated_data(tmp_path):
+    game = Path(make_game(str(tmp_path / "game")))
+    work = tmp_path / "work"
+    target = game / "data" / "Map001.json"
+    original = target.read_bytes()
+    _dump(work / "translated_ids.json", {"data/Map001.json#displayName": "Town"})
+
+    with pytest.raises(bake_mod.BakeError, match="cannot be satisfied"):
+        bake_mod.bake(game, work, font_policy="required",
+                      repo_root=tmp_path / "unconfigured")
+
+    assert target.read_bytes() == original
+    assert not (work / "backup").exists()
+
+
+def test_bake_applies_translated_parameters_and_font_changes_together(tmp_path):
+    game = Path(make_mz_game(str(tmp_path / "game"), plugin_params={
+        "Label": "ラベル",
+        "Font Name CH": "Fixture Font, sans-serif",
+    }))
+    work = tmp_path / "work"
+    ids = work / "translated_ids.json"
+    _dump(ids, {"js/plugins.js#[0].parameters.Label": "Translated label"})
+    original = {
+        relative: (game / relative).read_bytes()
+        for relative in ("js/plugins.js", "data/System.json", "css/game.css")
+    }
+    asset = tmp_path / "source.otf"
+    asset.write_bytes(b"fixture font")
+
+    bake_mod.bake(game, work, font_policy="required", font_path=asset)
+
+    plugins, _, _ = bake_mod.load_plugin_params(game)
+    assert plugins[0]["parameters"] == {
+        "Label": "Translated label",
+        "Font Name CH": "GameFont",
+    }
+    for relative, expected in original.items():
+        assert (work / "backup" / relative).read_bytes() == expected
+
+
+def test_bake_skips_plugin_parameter_when_plugins_file_is_absent(tmp_path):
+    game = Path(make_game(str(tmp_path / "game")))
+    path = game / "js" / "plugins.js"
+    path.unlink()
+    work = tmp_path / "work"
+    _dump(work / "translated_ids.json", {"js/plugins.js#[0].parameters.Label": "Label"})
+
+    report = bake_mod.bake(game, work, apply_unified_font=False)
+
+    assert report["skipped"] == 1
+    assert not path.exists()
+
+
 def test_apply_font_switches_single_face(tmp_path):
     game = make_game(str(tmp_path / "game"))
     asset = tmp_path / bake_mod.UNIFIED_FONT
@@ -345,6 +400,21 @@ def test_apply_font_mz_splits_faces_and_clears_main_filename(tmp_path):
                                        "mplus-1m-regular.woff"))  # kept
     # re-running changes nothing
     assert bake_mod.apply_font_mz(game, font_path=sc, jp_path=jp) == ([], [])
+
+
+def test_apply_font_mz_replaces_same_size_asset_and_backs_it_up(tmp_path):
+    game = Path(make_mz_game(str(tmp_path / "game")))
+    source = tmp_path / "new.otf"
+    source.write_bytes(b"new")
+    installed = game / "fonts" / bake_mod.UNIFIED_FONT
+    installed.write_bytes(b"old")
+    backup = tmp_path / "backup"
+
+    files, _ = bake_mod.apply_font_mz(game, font_path=source, backup_dir=backup)
+
+    assert files[0] == f"fonts/{bake_mod.UNIFIED_FONT}"
+    assert installed.read_bytes() == b"new"
+    assert (backup / "fonts" / bake_mod.UNIFIED_FONT).read_bytes() == b"old"
 
 
 def test_apply_font_dispatches_to_mz_without_gamefont_css(tmp_path):

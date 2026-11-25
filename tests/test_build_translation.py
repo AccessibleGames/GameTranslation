@@ -2,7 +2,7 @@
 """Unit tests for tools/build_translation.py - the static-translation work
 package builder (template / names / structure / context / name macros).
 
-Contract under test (AGENTS.md + docs/translation.md):
+Contract under test:
 - template.json: every translatable static string; message runs become block
   keys (lines joined with "\\n"), pure-ASCII keys are dropped,
 - located keys (\\x1f<loc>) for text repeated in different places; short

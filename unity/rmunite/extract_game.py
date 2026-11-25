@@ -14,7 +14,7 @@ import os
 import re
 from typing import Annotated
 
-from rpgmaker import cliutil, platform
+from rpgmaker import cliutil, io_boundary, platform
 
 log = logging.getLogger("unity.rmunite.extract_game")
 
@@ -52,18 +52,18 @@ def walk_collect(obj, path, out, classname):
 
 
 def find_bundle_root(game_dir):
-    """`<game>/<name>_Data/StreamingAssets/aa/StandaloneWindows64`, or None."""
+    """Find a supported Addressables directory under a Unity build."""
     try:
-        data_dirs = [d for d in os.listdir(game_dir) if d.endswith("_Data")]
+        data_dirs = sorted(name for name in os.listdir(game_dir) if name.endswith("_Data"))
     except OSError as exc:
         log.error("%s: cannot list game dir: %s", game_dir, exc)
         return None
-    if not data_dirs:
-        log.error("%s: no *_Data folder found - is this a Unity build?",
-                  game_dir)
-        return None
-    return os.path.join(game_dir, data_dirs[0],
-                        "StreamingAssets", "aa", "StandaloneWindows64")
+    for name in data_dirs:
+        root = os.path.join(game_dir, name, "StreamingAssets", "aa", "StandaloneWindows64")
+        if os.path.isdir(root):
+            return root
+    log.error("%s: no *_Data/StreamingAssets/aa/StandaloneWindows64 directory", game_dir)
+    return None
 
 
 def collect_bundles(root):
@@ -157,15 +157,14 @@ def _scan_bundles(bundle_files, root, unique, stats, raw_path, unitypy):
 
 def _write_outputs(out_dir, unique, sel, meta):
     """Write the meta/template/texts JSON, then the class breakdown."""
-    with open(os.path.join(out_dir, "keys_target_meta.json"), "w",
-              encoding="utf-8") as f:
-        json.dump(meta, f, ensure_ascii=False, indent=1)
-    with open(os.path.join(out_dir, "translated_template.json"), "w",
-              encoding="utf-8") as f:
-        json.dump(dict.fromkeys(sel, ""), f, ensure_ascii=False, indent=1)
-    with open(os.path.join(out_dir, "texts_ja.json"), "w",
-              encoding="utf-8") as f:
-        json.dump(unique, f, ensure_ascii=False, indent=1)
+    outputs = {
+        "keys_target_meta.json": meta,
+        "translated_template.json": dict.fromkeys(sel, ""),
+        "texts_ja.json": unique,
+    }
+    for filename, payload in outputs.items():
+        io_boundary.dump_json(os.path.join(out_dir, filename), payload,
+                              trailing_newline=False, ensure_parent=False)
     print("saved keys_target_meta.json / translated_template.json / "
           "texts_ja.json")
     tc = collections.Counter()

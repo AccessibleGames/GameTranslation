@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """build_csv_template.py - Extract ExternMessage.csv dialogue into a
-translation work package (for the static-subagent workflow, docs/translation.md).
+translation work package (for the static-subagent workflow).
 
 The ExternMessage.js plugin stores dialogue in `data/ExternMessage.csv`
 (rows: 名前(ID),本文(body),...), referenced from events via \\M[ID]. This tool

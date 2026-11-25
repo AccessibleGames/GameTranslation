@@ -46,7 +46,7 @@ SPLIT = re.compile(r"\n")
 JA = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
 NAME_LINE = re.compile(r"^(?:[\u3040-\u30ff\u4e00-\u9fff]|・)+[さんちゃん君様先生嬢ぽ]?$")
 DIRECTIVE = re.compile(r"^\s*(?:<|>|//|#|\[|`)|<[A-Za-z_@][^>]*>", re.S)
-WINDOW = 2
+WINDOW = rpgmaker_common.DIALOGUE_RADIUS
 
 # Parsed plugin list cache (review §4.2: "single read, cached per file").
 # js/plugins.js is read and parsed exactly once per build even when
@@ -86,44 +86,12 @@ def is_event_container(data):
     return rpgmaker_common.is_event_container(data)
 
 
-def talk_lines(lst):
-    """[(index, raw_text_or_None)] for all talk-ish commands in a list."""
-    out = []
-    for idx, cmd in enumerate(lst):
-        code = cmd.get("code")
-        params = cmd.get("parameters") or []
-        if code in (401, 405):
-            out.append((idx, params[0] if params and isinstance(params[0], str)
-                        else None))
-        elif code == 101 and len(params) >= 5 and isinstance(params[4], str):
-            out.append((idx, f"【{params[4]}】"))
-        elif code == 102 and params and isinstance(params[0], list):
-            out.append((idx, "【选项】{}".format(" / ".join(
-                str(x) for x in params[0] if isinstance(x, str)))))
-        else:
-            out.append((idx, None))
-    return out
-
-
-def pos_map(tl):
-    """command index -> position in the talk list.  Building this once per
-    command list turns window_for() from a per-call O(m) linear scan into an
-    O(1) lookup, so the whole build is O(n) instead of O(n x m) (review
-    §4.2: group windows per (map, event) command list, then look up).
-    setdefault keeps the FIRST occurrence like the legacy window_for()."""
-    pos = {}
-    for i, (ci, _) in enumerate(tl):
-        pos.setdefault(ci, i)
-    return pos
+talk_lines = rpgmaker_common.talk_lines
+pos_map = rpgmaker_common.pos_map
 
 
 def window_for(idx, tl, radius=WINDOW, pos=None):
-    if pos is None:
-        pos = pos_map(tl)
-    p = pos.get(idx)
-    if p is None:
-        return []
-    return [t for _, t in tl[max(0, p - radius):p + radius + 1] if t is not None]
+    return rpgmaker_common.window_for(idx, tl, radius, pos)
 
 
 # ---------------------------------------------------------------------------

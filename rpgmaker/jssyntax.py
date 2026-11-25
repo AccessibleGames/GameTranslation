@@ -1,26 +1,5 @@
 #!/usr/bin/env python3
-"""jssyntax.py - in-process JavaScript syntax checking (tree-sitter).
-
-KAG3 scenarios carry JavaScript inside `[iscript]` blocks, and a block that
-does not parse fails **silently** at runtime (the scenario simply stops
-advancing).  Catching that needs a JS parser, which used to mean shelling out
-to ``node --check`` - a Node.js install for one syntax check, plus a temp file
-per block.
-
-``tree-sitter`` (+ its ``tree-sitter-javascript`` grammar) is a packaged
-incremental parser: parsing happens in-process, nothing is executed (the
-scripts under test have side effects, so evaluating them is not an option),
-and invalid input still yields a tree - the errors are the ``ERROR`` /
-missing nodes.
-
-Equivalence with the tool it replaced was measured, not assumed: over 58 real
-JS files (the TyranoScript runtime libraries, minified ones included) each
-tested as-is plus three corruption modes (truncation, a removed brace, a stray
-method-shorthand keyword), **225/225 verdicts agreed with ``node --check``**,
-including the deliberately broken ones.  Tree-sitter is error-tolerant by
-design, so the comparison counts a file as invalid when *any* ERROR or missing
-node is present anywhere in the tree.
-"""
+"""Parse embedded JavaScript without executing game scripts."""
 
 import logging
 
@@ -56,7 +35,8 @@ def _describe(source, node):
     row, col = node.start_point
     if node.is_missing:
         return "line %d:%d: missing %r" % (row + 1, col + 1, node.type)
-    text = source[node.start_byte:node.end_byte]
+    # Node offsets index UTF-8 bytes, including when the script contains kana.
+    text = source[node.start_byte:node.end_byte].decode("utf-8", "replace")
     snippet = " ".join(text.split())[:60]
     if snippet:
         return "line %d:%d: unexpected %s" % (row + 1, col + 1,
@@ -68,17 +48,18 @@ def parse_errors(source):
     """List the syntax errors of `source` (empty list when it parses).
 
     Each entry is ``{"line": int, "column": int, "error": str}`` with
-    1-based line/column, in source order, deduplicated by position.
+    1-based line and UTF-8 byte column, in source order.
     """
     parser = _get_parser()
-    tree = parser.parse(source.encode("utf-8", "replace"))
+    encoded = source.encode("utf-8", "replace")
+    tree = parser.parse(encoded)
     found = []
     stack = [tree.root_node]
     while stack:
         node = stack.pop()
         if node.type == "ERROR" or node.is_missing:
             found.append(node)
-        else:
+        elif node.has_error:
             stack.extend(node.children)
     found.sort(key=lambda n: n.start_point)
     errors = []
@@ -89,7 +70,7 @@ def parse_errors(source):
             continue
         seen.add((row, col))
         errors.append({"line": row + 1, "column": col + 1,
-                       "error": _describe(source, node)})
+                       "error": _describe(encoded, node)})
     if errors:
         log.debug("%d syntax error(s), first: %s", len(errors),
                   errors[0]["error"])

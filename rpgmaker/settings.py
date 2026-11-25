@@ -5,22 +5,21 @@ Split out of the former god-module ``rpgmaker/config.py``.
 This module owns exactly one responsibility: where a *gitignored* local
 resource lives, and what the optional machine config in it says.
 
-``docs/reference/local-layout.md`` is the authoritative prose; this file is
-the only place in the repo that knows the physical layout, so the owner can
-move private data without anything grepping for path strings.
+Resolve local resources through PRIVATE_PATHS so current and legacy layouts
+use the same lookup order.
 
 Nothing here is mandatory configuration.  A missing, corrupt or wrongly
 shaped machine config simply means "use probing and built-in defaults"; every
 failure is reported (so ``doctor`` can surface it) but never raised at import
 time, and never silently degrades into a different layout.
 """
-import json
 import logging
 import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import io_boundary
 from .platform import platform_key, posix
 
 __all__ = [
@@ -226,12 +225,10 @@ def load_machine_config(path=None) -> MachineConfig:
     if not path.is_file():
         return MachineConfig(path=path, present=False)
     try:
-        text = path.read_text(encoding="utf-8")
+        parsed = io_boundary.load_json(path)
     except OSError as exc:
         return MachineConfig(path=path, present=True,
                              problems=(f"{path}: cannot read ({exc})",))
-    try:
-        parsed = json.loads(text)
     except ValueError as exc:
         return MachineConfig(path=path, present=True,
                              problems=(f"{path}: invalid JSON ({exc})",))

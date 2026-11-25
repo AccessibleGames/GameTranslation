@@ -35,6 +35,8 @@ import os
 import re
 from collections import Counter, OrderedDict, defaultdict
 
+from rpgmaker import io_boundary
+
 from . import codes as codes_mod
 from .codes import CJK_RE, KANA_RE, code_key, parse_codes
 
@@ -774,16 +776,13 @@ def extract(game_dir, work_dir, window=2, note_tags=DEFAULT_NOTE_TAGS):
 
     os.makedirs(work_dir, exist_ok=True)
     keys_path = os.path.join(work_dir, "keys.jsonl")
-    with open(keys_path, "w", encoding="utf-8", newline="\n") as handle:
+    with io_boundary.open_atomic(keys_path, encoding="utf-8") as handle:
         for entry in entries:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     names = dict(sorted(
         collector.names.items(), key=lambda kv: (-kv[1]["count"], kv[0])))
-    with open(os.path.join(work_dir, "names_candidates.json"), "w",
-                 encoding="utf-8", newline="\n") as handle:
-        json.dump(names, handle, ensure_ascii=False, indent=1, sort_keys=False)
-        handle.write("\n")
+    io_boundary.dump_json(os.path.join(work_dir, "names_candidates.json"), names)
 
     table = codes_mod.inventory(game_dir, collector.code_counts)
     codes_mod.write_markdown(os.path.join(work_dir, "control_codes.md"), table,
@@ -807,10 +806,7 @@ def extract(game_dir, work_dir, window=2, note_tags=DEFAULT_NOTE_TAGS):
         "window": window,
         "note_tags": list(note_tags),
     }
-    with open(os.path.join(work_dir, "stats.json"), "w", encoding="utf-8",
-                 newline="\n") as handle:
-        json.dump(stats, handle, ensure_ascii=False, indent=1)
-        handle.write("\n")
+    io_boundary.dump_json(os.path.join(work_dir, "stats.json"), stats)
     return stats
 
 

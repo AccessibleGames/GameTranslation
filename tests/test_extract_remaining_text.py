@@ -3,7 +3,7 @@
 Japanese (kana-bearing) display strings from an already-translated build, the
 completion-pass entry point.
 
-Contract under test (AGENTS.md + docs/translation.md):
+Contract under test:
 - only kana-bearing strings are extracted; already-translated Chinese lines,
   pure-ASCII values and kanji-only strings are left out (that is what
   "remaining" means - kana is the canonical residual detector),

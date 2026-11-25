@@ -51,14 +51,13 @@ DIRECTIVE = re.compile(r"^\s*(?:<|>|//|#|\[|`)|<[A-Za-z_@][^>]*>", re.S)
 # skipped when it is pure JSON (recipe material lists embedded as objects).
 NOTE_TAG = re.compile(r"<[A-Za-z_@][^>]*>")
 NOTE_JSON = re.compile(r"^\s*[{\[\"]")
-WINDOW = 2
+WINDOW = rpgmaker_common.DIALOGUE_RADIUS
 
 DISPLAY_KEYS = {"name", "nickname", "profile", "description",
                 "message1", "message2", "message3", "message4", "text"}
 EVENT_TEXT_IDX = {101: [4], 402: [0], 320: [1], 324: [1], 325: [1]}
 SYSTEM_TEXT_FIELDS = rpgmaker_constants.SYSTEM_TEXT_FIELDS
 SYSTEM_TEXT_ARRAYS = rpgmaker_constants.SYSTEM_TEXT_ARRAYS
-TALK_CODES = (401, 405, 101, 102)
 
 
 def log(msg):
@@ -73,29 +72,11 @@ def is_event_container(data):
     return rpgmaker_common.is_event_container(data)
 
 
-def talk_lines(lst):
-    """[(index, raw_text_or_None)] for all talk-ish commands in a list."""
-    out = []
-    for idx, cmd in enumerate(lst):
-        code = cmd.get("code")
-        params = cmd.get("parameters") or []
-        if code in (401, 405):
-            out.append((idx, params[0] if params and isinstance(params[0], str) else None))
-        elif code == 101 and len(params) >= 5 and isinstance(params[4], str):
-            out.append((idx, f"【{params[4]}】"))
-        elif code == 102 and params and isinstance(params[0], list):
-            out.append((idx, "【选项】{}".format(" / ".join(str(x) for x in params[0] if isinstance(x, str)))))
-        else:
-            out.append((idx, None))
-    return out
+talk_lines = rpgmaker_common.talk_lines
 
 
 def window_for(idx, tl, radius=WINDOW):
-    pos = [i for i, (ci, _) in enumerate(tl) if ci == idx]
-    if not pos:
-        return []
-    p = pos[0]
-    return [t for _, t in tl[max(0, p - radius):p + radius + 1] if t is not None]
+    return rpgmaker_common.window_for(idx, tl, radius)
 
 
 def _dict_kana_values(obj):
@@ -113,36 +94,36 @@ def _dict_kana_values(obj):
     return out
 
 
-def _code_block_line(params, col, where, idx, tl):
+def _code_block_line(params, col, where, window):
     """Codes 401/405: a message box line, plus a short speaker-name line."""
     if not (params and isinstance(params[0], str) and params[0]):
         return
-    col.add(params[0], "block-line", where, window_for(idx, tl))
+    col.add(params[0], "block-line", where, window)
     if (len(params[0]) <= 14
             and not ctrl_codes.CTRL_TOKEN.search(params[0])
             and NAME_LINE.match(params[0].strip())):
         col.add_name(params[0].strip())
 
 
-def _code_choice(params, col, where, idx, tl):
+def _code_choice(params, col, where, window):
     """Code 102: the choice captions (a list of display strings)."""
     if not (params and isinstance(params[0], list)):
         return
     for x in params[0]:
         if isinstance(x, str) and x:
-            col.add(x, "choice", where, window_for(idx, tl))
+            col.add(x, "choice", where, window)
 
 
-def _code_event_text(code, params, col, where, idx, tl):
+def _code_event_text(code, params, col, where, window):
     """Codes in EVENT_TEXT_IDX: text operands, indexed per code."""
     for pidx in EVENT_TEXT_IDX[code]:
         if pidx < len(params) and isinstance(params[pidx], str) and params[pidx]:
             if code == 101 and len(params) >= 5:
                 col.add_name(params[4])
-            col.add(params[pidx], "event-text", where, window_for(idx, tl))
+            col.add(params[pidx], "event-text", where, window)
 
 
-def _code_script_operand(params, col, where, idx, tl):
+def _code_script_operand(params, col, where, window):
     r"""Code 122: display strings held in script operands.
 
     ``operandType == 4`` stores a DISPLAY string in a variable (shown later via
@@ -152,21 +133,21 @@ def _code_script_operand(params, col, where, idx, tl):
     if len(params) > 3 and params[3] == 4:
         if len(params) > 4 and isinstance(params[4], str) and params[4] \
                 and params[4][0] in "'\"" and QUOTED.search(params[4]):
-            col.add(params[4], "script-var", where, window_for(idx, tl))
+            col.add(params[4], "script-var", where, window)
         return
     for pidx in (3, 4):
         if pidx < len(params) and isinstance(params[pidx], str) and params[pidx]:
-            col.add(params[pidx], "event-text", where, window_for(idx, tl))
+            col.add(params[pidx], "event-text", where, window)
 
 
-def _code_script_line(params, col, where, idx, tl):
+def _code_script_line(params, col, where, window):
     """Codes 355/655: a script line whose quoted literal carries kana."""
     if params and isinstance(params[0], str) and params[0] \
             and QUOTED.search(params[0]):
-        col.add(params[0], "script", where, window_for(idx, tl))
+        col.add(params[0], "script", where, window)
 
 
-def _code_plugin_arg(params, col, where, idx, tl):
+def _code_plugin_arg(params, col, where, window):
     """Code 357: kana-bearing string VALUES in a plugin command's arg dict.
 
     ``params[2]`` is the Japanese command NAME - a functional lookup key the
@@ -174,30 +155,32 @@ def _code_plugin_arg(params, col, where, idx, tl):
     """
     if len(params) > 3 and isinstance(params[3], dict):
         for v in _dict_kana_values(params[3]):
-            col.add(v, "plugin-arg", where, window_for(idx, tl))
+            col.add(v, "plugin-arg", where, window)
 
 
-def _code_comment(params, col, where, idx, tl):
+def _code_comment(params, col, where, window):
     """Code 408: a comment, unless it is a directive the engine parses."""
     if params and isinstance(params[0], str) and params[0] \
             and not DIRECTIVE.match(params[0]):
-        col.add(params[0], "help", where, window_for(idx, tl))
+        col.add(params[0], "help", where, window)
 
 
 def walk_commands(cmds, col, where):
     """Collect the display strings of one command list, in order.
 
     Dispatch is by command code; every handler shares the ``(params, col,
-    where, idx, tl)`` shape and is silent when its operands do not match, so
+    where, window)`` shape and is silent when its operands do not match, so
     the chain reads as a table rather than 40 nested branches.
     """
     tl = talk_lines(cmds)
+    positions = rpgmaker_common.pos_map(tl)
     for idx, cmd in enumerate(cmds):
         code = cmd.get("code")
         params = cmd.get("parameters")
         if not isinstance(params, list):
             continue
-        args = (params, col, where, idx, tl)
+        window = rpgmaker_common.window_for(idx, tl, pos=positions)
+        args = (params, col, where, window)
         if code in (401, 405):
             _code_block_line(*args)
         elif code == 102:

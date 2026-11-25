@@ -425,6 +425,38 @@ class TestUnpackArchive:
         assert n == 1
         assert (out / "plain.txt").read_bytes() == b"data"
 
+    def test_nested_files_keep_the_full_directory_path(self, tmp_path):
+        names = bytearray()
+        offsets = []
+        for name in (b"outer", b"inner", b"scene.txt"):
+            offsets.append(len(names))
+            words = (len(name) + 3) // 4
+            names += struct.pack("<HH", words, 0)
+            names += name.upper().ljust(words * 4, b"\0") + name + b"\0"
+
+        payload = b"scene"
+        missing_size = 0xFFFFFFFFFFFFFFFF
+        file_table = b"".join(
+            struct.pack("<9Q", offset, attributes, 0, 0, 0, address, size,
+                        missing_size, missing_size)
+            for offset, (attributes, address, size) in zip(
+                offsets, [(0x10, 32, 0), (0x10, 64, 0), (0, 0, len(payload))],
+                strict=True,
+            )
+        )
+        directories = b"".join(struct.pack("<4Q", 0, parent, 1, index * 72)
+                               for index, parent in enumerate((missing_size, 0, 32)))
+        tables = huffman_encode(lz_encode(names + file_table + directories), [1] * 256)
+        header = struct.pack("<HHIQQQQIIB15s", 0x5844, 8, 64, 64,
+                             64 + len(payload), len(names), len(names) + len(file_table),
+                             0, dx.DXA_FLAG_NO_KEY, 0xFF, b"")
+        archive = tmp_path / "nested.wolf"
+        archive.write_bytes(header + payload + tables)
+
+        output = tmp_path / "out"
+        assert dx.unpack_archive(str(archive), str(output), b"") == 1
+        assert (output / "outer" / "inner" / "scene.txt").read_bytes() == payload
+
     def test_too_small_file(self, tmp_path):
         arch = tmp_path / "tiny.wolf"
         arch.write_bytes(b"\x00" * 10)

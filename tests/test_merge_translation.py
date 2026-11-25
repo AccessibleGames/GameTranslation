@@ -3,7 +3,7 @@
 combines agent chunk output + prefilled (MTool exact hits) + terminology sweep
 into translated.json.
 
-Contract under test (AGENTS.md / docs/translation.md):
+Contract under test:
 - chunks + prefilled merge into translated.json; prefilled keys OVERRIDE chunk
   keys on collision,
 - sweep rules are applied IN ORDER, longest-first (a target that is the prefix
@@ -132,7 +132,7 @@ class TestMergeFlow:
         assert "prefilled merged: 1 keys (1 swept)" in capsys.readouterr().out
 
     def test_sweep_order_longest_first(self, tmp_path, monkeypatch):
-        # Substring bomb (docs/translation.md §4.2): a rule whose target is the
+        # Substring bomb: a rule whose target is the
         # prefix of a later target must be applied longest-first, otherwise the
         # later rule is re-hit on the already-swept text.
         work = str(tmp_path / "work")

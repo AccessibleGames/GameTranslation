@@ -624,15 +624,7 @@ def unpack_archive(
 
 @contextlib.contextmanager
 def _mapped_archive(path: str):
-    """Yield a read-only memory map of the container file.
-
-    A commercial Data.wolf is regularly far larger than the RAM this process may
-    use (measured: 2.9 GB on a 16 GB machine with ~2.5 GB free), so the file is
-    mapped instead of read into memory.  Every access in `_unpack_mapped` is a
-    slice or an explicit byte range, so decoding is unchanged; peak memory drops
-    from "the whole archive" to "the largest single entry".  Windows refuses to
-    map an empty file, hence the explicit size check.
-    """
+    """Map the archive so resident memory scales with the largest entry."""
     with open(path, "rb") as f:
         if os.fstat(f.fileno()).st_size == 0:
             raise ValueError("file too small to be a DXArchive")
@@ -642,11 +634,7 @@ def _mapped_archive(path: str):
 
 def _unpack_mapped(raw, out_dir: str, key_string: bytes,
                    skip_protection_cleanup: bool) -> int:
-    """Decode a mapped (or in-memory) container into out_dir.
-
-    Split out of `unpack_archive` so the mapping stays a thin shell and this
-    decode body is unchanged by the switch to mmap (`git diff -w` shows it).
-    """
+    """Decode entries from a memory map or an in-memory container."""
     if len(raw) < 64:
         raise ValueError("file too small to be a DXArchive")
     head = DxaHeader(raw[:64])
@@ -756,32 +744,25 @@ def _unpack_mapped(raw, out_dir: str, key_string: bytes,
                 out_data = bytes(out_data)
         fout.write(out_data)
 
-    file_count = 0
+    def walk(directory: DxaDirectory, destination: str) -> int:
+        os.makedirs(destination, exist_ok=True)
+        count = 0
+        for index in range(directory.file_num):
+            offset = directory.file_head_addr + index * DxaFileHead._SIZE
+            file = DxaFileHead.from_bytes(file_table, offset)
+            name = get_original_name(name_table, file.name_addr)
+            path = os.path.join(destination, name)
+            if file.is_dir:
+                count += walk(DxaDirectory.from_bytes(dir_table, file.data_addr), path)
+                continue
+            with open(path, "wb") as stream:
+                decode_one(file, directory, stream)
+            if not skip_protection_cleanup and os.path.basename(path).lower() in UNPACK_PROTECTION_FILES:
+                _strip_protection(path)
+            count += 1
+        return count
 
-    def walk(directory: DxaDirectory, rel_dir: str) -> None:
-        nonlocal file_count
-        base = out_dir if rel_dir == "" else os.path.join(out_dir, rel_dir)
-        if rel_dir:
-            os.makedirs(base, exist_ok=True)
-        for i in range(directory.file_num):
-            fh = DxaFileHead.from_bytes(
-                file_table, directory.file_head_addr + i * DxaFileHead._SIZE
-            )
-            name = get_original_name(name_table, fh.name_addr)
-            if fh.is_dir:
-                walk(DxaDirectory.from_bytes(dir_table, fh.data_addr), name)
-            else:
-                dest_path = os.path.join(base, name)
-                with open(dest_path, "wb") as fout:
-                    decode_one(fh, directory, fout)
-                if not skip_protection_cleanup and (
-                    os.path.basename(dest_path).lower() in UNPACK_PROTECTION_FILES
-                ):
-                    _strip_protection(dest_path)
-                file_count += 1
-
-    walk(DxaDirectory.from_bytes(dir_table, 0), "")
-    return file_count
+    return walk(DxaDirectory.from_bytes(dir_table, 0), out_dir)
 
 
 def _lz_decode_with_size(lz_head: bytes) -> bytes:

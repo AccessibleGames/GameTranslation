@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CHANGELOG and deprecation-policy gates.
+"""Check that the changelog and the module inventory agree.
 
 Why this file exists
 --------------------
@@ -28,7 +28,6 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from rpgmaker import inventory
 
 CHANGELOG = os.path.join(REPO_ROOT, "CHANGELOG.md")
-POLICY = os.path.join(REPO_ROOT, "docs", "reference", "deprecation-policy.md")
 
 #: Section headings a Keep-a-Changelog file uses.  `Unreleased` is separate
 #: because it is the only one that must always be present.
@@ -110,11 +109,6 @@ class TestTheChangelogIsAPlausibleChangelog:
         assert "__version__" in text, (
             "the changelog should say where the version comes from")
 
-    def test_it_names_the_deprecation_policy(self):
-        """The changelog's rules must point at the policy, not restate it."""
-        assert "deprecation-policy" in _read(CHANGELOG)
-
-
 class TestTheRegisterAndTheChangelogAgree:
     def test_every_deprecated_record_has_a_changelog_entry(self):
         """A tool marked superseded must tell the reader what to use instead."""
@@ -149,50 +143,3 @@ class TestTheRegisterAndTheChangelogAgree:
         assert not missing, (
             "these deprecation entries do not name a replacement target: "
             f"{missing}")
-
-
-class TestThePolicyIsExecutable:
-    def test_the_policy_exists(self):
-        assert os.path.isfile(POLICY)
-
-    def test_it_defines_all_three_record_locations(self):
-        """The policy's whole value is naming where things must be recorded."""
-        body = _read(POLICY)
-        for needle in ("rpgmaker/inventory.py", "CHANGELOG.md"):
-            assert needle in body, needle
-        assert "宽限期" in body
-
-    def test_it_states_the_deletable_conditions(self):
-        body = _read(POLICY)
-        assert "可删除条件" in body
-        assert "零导入者" in body
-
-    def test_it_says_a_maintenance_tool_is_not_deprecated(self):
-        """The inventory has a permanent `maintenance` status; the policy must
-        not be read as a reason to delete those."""
-        assert "maintenance" in _read(POLICY)
-
-    def test_it_does_not_claim_a_version_countdown_this_repo_cannot_verify(self):
-        """The repo has no tags, so the grace period must not be a date or a
-        version number - it must be something CI actually observes."""
-        body = _read(POLICY)
-        assert "没有 git tag" in body
-        assert "全部条件" in body or "全部满足" in body
-
-
-class TestTheDocumentsAreWiredIntoTheEntryPoints:
-    def test_the_index_links_both_documents(self):
-        index = _read(os.path.join(REPO_ROOT, "docs", "index.md"))
-        assert "CHANGELOG.md" in index
-        assert "deprecation-policy.md" in index
-
-    def test_the_docs_layout_lists_both(self):
-        layout = _read(os.path.join(REPO_ROOT, "docs", "reference", "repo-layout.md"))
-        assert "CHANGELOG.md" in layout
-        assert "deprecation-policy.md" in layout
-
-    def test_contributing_points_at_the_policy(self):
-        """Someone adding a tool needs to find the rule from the guide they
-        already read."""
-        contributing = _read(os.path.join(REPO_ROOT, "docs", "CONTRIBUTING.md"))
-        assert "deprecation-policy" in contributing

@@ -1,96 +1,51 @@
 #!/usr/bin/env python3
-"""Merge a Chinese font with a Japanese font into one CJK TTF.
-
-The Chinese font goes first, so its glyphs win for every codepoint both
-fonts cover; the Japanese font supplies the kanji the Chinese font lacks.
-Both inputs are rescaled to a common units-per-em (2048) before merging.
-
-Useful for KiriKiri games whose configured font has no GB glyphs - the
-merged font is installed (or registered) for the game, so dialogue renders
-without tofu boxes.  Exact font registration is game-specific; record what
-worked in *that game's workspace notes* (a gitignored local file, see
-docs/reference/local-layout.md).
-
-Usage:
-    python3 kirikiri/merge_font.py <cn_font> <jp_font> <out.ttf> [--upm 2048]
-"""
+"""Merge two fonts, using the Chinese font for overlapping characters."""
 
 import os
+import tempfile
+from pathlib import Path
 from typing import Annotated
 
-from rpgmaker import cliutil, platform
+from rpgmaker import cliutil, io_boundary, platform
 
 try:
-    from fontTools.ttLib import TTCollection, TTFont
+    from fontTools.ttLib import TTFont
 except ImportError as exc:                     # pragma: no cover - hint path
     raise ImportError(
         "fontTools is required to merge the Chinese and Japanese fonts - "
-        "install the optional extra (pip install -e \".[fonts]\")") from exc
-
-
-def _open_font(path):
-    if path.lower().endswith(".ttc"):
-        return TTCollection(path).fonts[0]
-    return TTFont(path)
+        "install the optional extra (uv sync --extra fonts)") from exc
 
 
 def scale_to(font_path, out_path, target_upm):
-    """Rescale a font's metrics to a common units-per-em."""
-    font = _open_font(font_path)
-    cur = font["head"].unitsPerEm
-    factor = target_upm / cur
-    font["head"].unitsPerEm = target_upm
+    """Normalize outlines and metrics using the fontTools table visitors."""
+    from fontTools.ttLib.scaleUpem import scale_upem
 
-    glyf = font["glyf"]
-    for gname in glyf.glyphOrder:
-        glyph = glyf[gname]
-        if glyph.numberOfContours > 0:
-            glyph.coordinates = glyph.coordinates * factor
-        if glyph.isComposite():
-            for comp in glyph.components:
-                comp.x = int(comp.x * factor)
-                comp.y = int(comp.y * factor)
-
-    for tag in ("hmtx", "vmtx"):
-        if tag in font:
-            for name in list(font[tag].metrics):
-                adv, lsb = font[tag].metrics[name]
-                font[tag].metrics[name] = (int(adv * factor), int(lsb * factor))
-
-    if "hhea" in font:
-        hhea = font["hhea"]
-        hhea.ascender = int(hhea.ascender * factor)
-        hhea.descender = int(hhea.descender * factor)
-    os2 = font["OS/2"]
-    os2.sTypoAscender = int(os2.sTypoAscender * factor)
-    os2.sTypoDescender = int(os2.sTypoDescender * factor)
-    os2.sTypoLineGap = int(os2.sTypoLineGap * factor)
-    os2.usWinAscent = int(os2.usWinAscent * factor)
-    os2.usWinDescent = int(os2.usWinDescent * factor)
-
-    font.save(out_path)
+    # TTC inputs use their first face, matching the order shown by the engine.
+    face = 0 if Path(font_path).suffix.lower() == ".ttc" else -1
+    with TTFont(font_path, fontNumber=face) as font:
+        scale_upem(font, target_upm)
+        with io_boundary.open_atomic(out_path, ensure_parent=False) as stream:
+            font.save(stream)
     return out_path
 
 
 def merge_fonts(cn_font, jp_font, out_path, upm):
     from fontTools.merge import Merger
 
-    # AGENTS.md CRITICAL: reads two font files and writes scaled intermediates
-    # next to the output; all of them must be on this processor's side.
-    own = platform.require_native_paths("merge fonts", cn_font=cn_font,
-                                        jp_font=jp_font, out_path=out_path)
-    cn_font, jp_font = str(own["cn_font"]), str(own["jp_font"])
-    out_path = str(own["out_path"])
-    tmp_dir = os.path.dirname(os.path.abspath(out_path))
-    os.makedirs(tmp_dir, exist_ok=True)
-    cn_scaled = os.path.join(tmp_dir, "_cn_%d.ttf" % upm)
-    jp_scaled = os.path.join(tmp_dir, "_jp_%d.ttf" % upm)
-    scale_to(cn_font, cn_scaled, upm)
-    scale_to(jp_font, jp_scaled, upm)
-
-    merged = Merger().merge([cn_scaled, jp_scaled])
-    merged.save(out_path)
-    return out_path
+    paths = platform.require_native_paths("merge fonts", cn_font=cn_font,
+                                          jp_font=jp_font, out_path=out_path)
+    output = Path(str(paths["out_path"]))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    # Keep each merge's intermediate names private to that invocation.
+    with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
+        inputs = [
+            str(scale_to(str(paths[role]), Path(temporary) / f"{role}.ttf", upm))
+            for role in ("cn_font", "jp_font")
+        ]
+        merged = Merger().merge(inputs)
+        with io_boundary.open_atomic(output) as stream:
+            merged.save(stream)
+    return str(output)
 
 
 def cmd(cn_font: Annotated[str, cliutil.Argument(
@@ -105,10 +60,12 @@ def cmd(cn_font: Annotated[str, cliutil.Argument(
         log_file: cliutil.LogFile = None) -> int:
     """Merge a Chinese and a Japanese font into one CJK TTF."""
     cliutil.setup_logging(verbose, quiet, log_file)
-    if not os.path.exists(cn_font) or not os.path.exists(jp_font):
-        return cliutil.fail("input font not found")
-    merge_fonts(cn_font, jp_font, out_ttf, upm)
-    print("merged size:", os.path.getsize(out_ttf), out_ttf)
+    paths = cliutil.own_paths("merge fonts", cn_font=cn_font, jp_font=jp_font, out_path=out_ttf)
+    for role in ("cn_font", "jp_font"):
+        if not os.path.isfile(str(paths[role])):
+            return cliutil.fail(f"input font not found: {paths[role]}")
+    output = merge_fonts(cn_font, jp_font, out_ttf, upm)
+    print("merged size:", os.path.getsize(output), output)
     return 0
 
 

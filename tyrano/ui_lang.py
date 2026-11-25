@@ -22,14 +22,13 @@ Usage:
     python3 -m tyrano.ui_lang dump  <build|lang.js> [-o out.json]
     python3 -m tyrano.ui_lang apply <build|lang.js> --map ui_lang_zh.json
 """
-import json
 import logging
 import os
 import re
 from collections import OrderedDict
 from typing import Annotated
 
-from rpgmaker import cliutil, platform
+from rpgmaker import cliutil, io_boundary
 
 log = logging.getLogger("tyrano.ui_lang")
 
@@ -188,8 +187,7 @@ def apply_map(path, mapping, block=DEFAULT_BLOCK, dry_run=False):
     report = {"applied": applied, "missing": missing, "refused": refused,
               "total": len(mapping)}
     if applied and not dry_run:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(head + body + tail)
+        io_boundary.write_text(path, head + body + tail, ensure_parent=False)
     return report
 
 
@@ -212,17 +210,16 @@ def cmd_dump(game: Annotated[str, cliutil.Argument(
     """List the engine UI strings that need translating."""
     cliutil.setup_logging(verbose, quiet, log_file)
     # AGENTS.md CRITICAL: reads (and with --out, writes) native paths.
-    game = str(platform.require_native_paths("dump tyrano UI strings",
-                                             game=game)["game"])
+    paths = cliutil.own_paths("dump tyrano UI strings", game=game, out=out)
+    game = str(paths["game"])
+    out = str(paths["out"]) if out else None
     lang = _resolve(game)
     strings = extract(lang, block)
     kana = OrderedDict((k, v) for k, v in strings.items() if KANA_RE.search(v))
     log.info("%s: %d entries in '%s', %d need translating",
              lang, len(strings), block, len(kana))
     if out:
-        with open(out, "w", encoding="utf-8") as f:
-            json.dump(kana, f, ensure_ascii=False, indent=4)
-            f.write("\n")
+        io_boundary.dump_json(out, kana, indent=4, ensure_parent=False)
         log.info("wrote %s", out)
     else:
         for key, val in kana.items():
@@ -245,13 +242,13 @@ def cmd_apply(game: Annotated[str, cliutil.Argument(
     cliutil.setup_logging(verbose, quiet, log_file)
     # AGENTS.md CRITICAL: rewrites the game's lang.js in place with plain
     # Python I/O (`--dry-run` still resolves the path, which only stats).
-    game = str(platform.require_native_paths("apply tyrano UI strings",
-                                             game=game)["game"])
+    paths = cliutil.own_paths("apply tyrano UI strings", game=game, mapping=mapping)
+    game = str(paths["game"])
+    mapping = str(paths["mapping"]) if mapping else None
     lang = _resolve(game)
     if not mapping:
         return cliutil.fail("--map is required")
-    with open(mapping, encoding="utf-8") as f:
-        table = json.load(f)
+    table = io_boundary.load_json(mapping)
     report = apply_map(lang, table, block=block, dry_run=dry_run)
     log.info("%s: %d applied, %d not in this lang.js, %d refused",
              lang, len(report["applied"]), len(report["missing"]),

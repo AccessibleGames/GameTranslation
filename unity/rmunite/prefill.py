@@ -6,12 +6,11 @@ The parameter parsing lives inside main() so the module can be imported
 without executing anything (this package is a set of standalone tools that
 share per-game helpers).
 """
-import json
 import os
 import re
 from typing import Annotated
 
-from rpgmaker import cliutil, platform
+from rpgmaker import cliutil, io_boundary
 
 
 def translate_line(text, base, names):
@@ -43,21 +42,17 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
         log_file: cliutil.LogFile = None) -> int:
     cliutil.setup_logging(verbose, quiet, log_file)
 
-    # AGENTS.md CRITICAL: reads and rewrites files inside work_dir with plain
-    # Python I/O.
-    work_dir = str(platform.require_native_paths(
-        "prefill unity translation", work_dir=work_dir)["work_dir"])
     out = os.path.abspath(work_dir)
-    key = game_key
-    base = json.load(open(os.path.join(out, "translated.json"), encoding="utf-8"))
-    meta = json.load(open(os.path.join(out, key, "keys_target_meta.json"),
-                          encoding="utf-8"))
+    game_dir = os.path.join(out, game_key)
+    cliutil.own_paths("prefill Unity translations", work_dir=out, game_dir=game_dir, names=names)
+    base = io_boundary.load_json(os.path.join(out, "translated.json"))
+    meta = io_boundary.load_json(os.path.join(game_dir, "keys_target_meta.json"))
 
     # character name table per game (from CharacterActorSO if present, plus
     # known series names)
     names_table = {}
     if names and os.path.exists(names):
-        names_table = json.load(open(names, encoding="utf-8")).get(key, {})
+        names_table = io_boundary.load_json(names).get(game_key, {})
 
     final = {}
     unresolved = []
@@ -68,16 +63,14 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
         else:
             unresolved.append(k)
 
-    with open(os.path.join(out, key, "translated_prefill.json"), "w",
-              encoding="utf-8") as f:
-        json.dump(final, f, ensure_ascii=False, indent=1)
+    io_boundary.dump_json(os.path.join(game_dir, "translated_prefill.json"),
+                          final, trailing_newline=False, ensure_parent=False)
 
     print("%s: total=%d prefill=%d unresolved=%d"
-          % (key, len(meta), len(final), len(unresolved)))
-    with open(os.path.join(out, key, "unresolved.txt"), "w",
-              encoding="utf-8") as f:
-        for t in unresolved:
-            f.write(t.replace("\n", "\\n") + "\n")
+          % (game_key, len(meta), len(final), len(unresolved)))
+    lines = "".join(text.replace("\n", "\\n") + "\n" for text in unresolved)
+    io_boundary.write_text(os.path.join(game_dir, "unresolved.txt"), lines,
+                           ensure_parent=False)
     return 0
 
 

@@ -1,7 +1,7 @@
 """clean_kana_ticks.py - Final tick cleanup: convert residual kana
 mouth-sounds OUTSIDE \\RB[] codes to Chinese/romaji so the shipped build has
 ~zero kana. \\RB[正文,注音] ruby args are converted by convert_rb_ruby.py;
-author/plugin/name values are exempt (see the local word table, docs/translation.md §6).
+author/plugin/name values are exempt (see the local word table).
 
 Usage:
     python -m tools.clean_kana_ticks <merged.json> [--exempt <file>]

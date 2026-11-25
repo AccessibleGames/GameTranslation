@@ -81,6 +81,19 @@ class TestHelpers:
         game = _make_game(tmp_path)
         assert X.find_bundle_root(game).endswith("StandaloneWindows64")
 
+    def test_find_bundle_root_ignores_unusable_candidates(self, tmp_path):
+        game = tmp_path / "game"
+        root = game / "z_Data" / "StreamingAssets" / "aa" / "StandaloneWindows64"
+        root.mkdir(parents=True)
+        (game / "a_Data").mkdir()
+        (game / "b_Data").touch()
+        assert X.find_bundle_root(str(game)) == str(root)
+
+    def test_find_bundle_root_handles_missing_directory(self, tmp_path, caplog):
+        missing = tmp_path / "missing"
+        assert X.find_bundle_root(str(missing)) is None
+        assert str(missing) in caplog.text
+
     def test_find_bundle_root_without_unity_data(self, tmp_path):
         empty = tmp_path / "not_unity"
         empty.mkdir()
@@ -100,6 +113,8 @@ class TestMain:
 
         def per_bundle(_path):
             return [
+                _Obj("MonoScript", raise_exc=ValueError("unreadable script")),
+                _Obj("MonoBehaviour", raise_exc=ValueError("unreadable object")),
                 _Obj("MonoScript", {"m_ClassName": "EventSO",
                                     "m_Namespace":
                                         "RPGMaker.Codebase.CoreSystem.Helper.SO"}),

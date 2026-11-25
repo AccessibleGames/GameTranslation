@@ -2,7 +2,7 @@
 """Unit tests for tools/bake_translation.py - the static-bake step of the
 translation pipeline.
 
-Covers the contract documented in AGENTS.md / docs/translation.md:
+Covers the contract:
 - EXACT-MATCH replacement only (a string is replaced iff its full text is a
   dict key; no greedy fragment substitution),
 - control codes (\\N[x], \\P[x], \\v[x]) stay verbatim,

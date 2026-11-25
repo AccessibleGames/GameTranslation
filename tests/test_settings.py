@@ -122,6 +122,30 @@ class TestLoadEnvConfig:
         assert cfg.ok
         assert cfg.section("tools") == {"wsl": {"7z": "3rd/7zz"}}
 
+    def test_reads_utf8_config_with_bom(self, tmp_path):
+        config = tmp_path / "environment.json"
+        config.write_text('{"version": 1, "tools": {}}', encoding="utf-8-sig")
+        assert settings.load_machine_config(config).ok
+
+    def test_invalid_utf8_is_reported_as_invalid_config(self, tmp_path):
+        config = tmp_path / "environment.json"
+        config.write_bytes(b'{"version": "\xff"}')
+        result = settings.load_machine_config(config)
+        assert result.raw == {}
+        assert "invalid JSON" in result.problems[0]
+
+    def test_reports_unreadable_file(self, tmp_path, monkeypatch):
+        config = tmp_path / "environment.json"
+        config.touch()
+
+        def deny(_):
+            raise PermissionError("fixture denial")
+
+        monkeypatch.setattr(settings.io_boundary, "load_json", deny)
+        result = settings.load_machine_config(config)
+        assert result.present
+        assert "cannot read" in result.problems[0]
+
     def test_newer_version_is_reported_not_honoured(self, monkeypatch,
                                                     tmp_path):
         cfg_path = tmp_path / "env_config.json"

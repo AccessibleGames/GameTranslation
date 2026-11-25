@@ -50,3 +50,42 @@ def rvdata2_ev_containers(data):
         if isinstance(evs, list):
             return [e for e in evs if isinstance(e, dict)]
     return []
+
+
+DIALOGUE_RADIUS = 2
+
+
+def talk_lines(commands):
+    """Pair each command index with its display text, if it has any."""
+    lines = []
+    for index, command in enumerate(commands):
+        code = command.get("code")
+        params = command.get("parameters") or []
+        text = None
+        if code in (401, 405) and params and isinstance(params[0], str):
+            text = params[0]
+        elif code == 101 and len(params) >= 5 and isinstance(params[4], str):
+            text = f"【{params[4]}】"
+        elif code == 102 and params and isinstance(params[0], list):
+            choices = " / ".join(choice for choice in params[0] if isinstance(choice, str))
+            text = f"【选项】{choices}"
+        # Commands with no display text still occupy a slot in the window.
+        lines.append((index, text))
+    return lines
+
+
+def pos_map(lines):
+    positions = {}
+    for position, (index, _) in enumerate(lines):
+        positions.setdefault(index, position)
+    return positions
+
+
+def window_for(index, lines, radius=DIALOGUE_RADIUS, pos=None):
+    """Return nearby display lines, counting hidden command slots in the radius."""
+    positions = pos if pos is not None else pos_map(lines)
+    position = positions.get(index)
+    if position is None:
+        return []
+    start = max(0, position - radius)
+    return [text for _, text in lines[start:position + radius + 1] if text is not None]

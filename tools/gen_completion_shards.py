@@ -27,7 +27,7 @@ from tools import plain_io
 
 # Single source for the game-owner tone policy (NEUTRAL_TONE + <work>/tone.md):
 # the full-flow and completion shard generators must never drift apart, and a
-# game's tone must never be hardcoded in a tool (docs/translation.md §3).
+# game's tone must never be hardcoded in a tool.
 from tools.gen_translation_shards import load_tone
 
 log = logging.getLogger("gen_completion_shards")

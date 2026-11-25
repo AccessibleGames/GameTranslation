@@ -8,7 +8,7 @@ assertion may sit on the wrong field, the failing branch may never be taken,
 or the test may pass for a reason unrelated to the code under test.  That is
 not hypothetical here - `tests/test_tyrano_pipeline.py` patched a name through
 the retired `config` facade and only stayed green because ffmpeg genuinely was
-not installed on the machine (see docs/experience-misc.md section 11.4).
+not installed on the machine.
 
 Mutation testing is the countermeasure: make one deliberate, *semantic* change
 that removes the guard, and require the suite to notice.  A mutation that
@@ -16,7 +16,7 @@ survives means the guard is decoration.
 
 Why not `mutmut`: it refuses to run on Windows ("To run mutmut on Windows,
 please use the WSL"), and running WSL-native tools over a Windows-side tree is
-exactly what the cross-system CRITICAL rule forbids (docs/reference/adr/cross-system-file-ownership.md).  This tool
+exactly what the cross-system CRITICAL rule forbids.  This tool
 therefore uses the pattern already proven in this repo
 (`tests/test_wheel_contents.py::_copy_tree_to`): build in a temporary copy,
 never in place, and run real pytest against that copy.

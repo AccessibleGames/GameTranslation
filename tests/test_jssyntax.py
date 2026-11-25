@@ -34,6 +34,11 @@ class TestParseErrors:
         assert errors[0]["error"].startswith("line 1:")
         assert "unexpected" in errors[0]["error"]
 
+    def test_error_snippet_uses_byte_offsets_for_multibyte_source(self):
+        errors = jssyntax.parse_errors('let name = "かな"; var x = ;')
+        assert len(errors) == 1
+        assert errors[0]["error"].endswith("unexpected '='")
+
     def test_missing_node_is_reported_as_missing(self):
         errors = jssyntax.parse_errors("function f() {\n  var a = 1;\n")
         assert len(errors) == 1, errors

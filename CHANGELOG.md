@@ -14,15 +14,18 @@
   标题并另起一个新的空 `Unreleased`。本仓库目前**没有 git tag**，所以
   `1.0.0` 是代码里的当前版本号，而不是一个已打标签的发布。
 - **弃用必须写进「弃用」一节**，并同时在 `rpgmaker/inventory.py` 里把该模块
-  的状态标为 `superseded` 或 `dead` 并写明 `replacement`。规则与宽限期见
-  `docs/reference/deprecation-policy.md`；`tests/test_changelog.py` 会把这条
-  规则当门禁跑（漏记会让测试变红，而不是只靠人工复核）。
+  的状态标为 `superseded` 或 `dead` 并写明 `replacement`。
+  `tests/test_changelog.py` 检查两处记录一致。
 
 ---
 
 ## [Unreleased]
 
 ### 变更
+
+- RPG Maker 和 Tyrano 命令共用 Typer 入口。翻译工作区、引擎输出和字体文件使用共享的原子写入。
+- RPG Maker 对话工具共用事件上下文索引。批次写入只加载一次键表，译库重写在所有规则通过后统一落盘。
+- KiriKiri 字体合并通过 fontTools 统一缩放字形、度量和相关字体表。
 
 - **测试导入正规化**：移除测试与子进程的导入路径补丁，工具统一从包导入；
   共享构造器拆到 `tests/helpers.py`，pytest 使用 importlib 模式，并增加
@@ -48,10 +51,6 @@
   `require_native_paths`，跨侧操作在打开后端之前就被拒绝并给出一行原因。
 - **可重复性能基准**：`python -m tools.benchmark run` 生成固定合成语料的
   build/verify JSON 样本，`compare` 只在同一操作系统内比较趋势并拒绝明显回退。
-- **新增文档**：`docs/reference/deprecation-policy.md`（弃用政策）。
-- **贡献模板**：`docs/CONTRIBUTING.md` 新增五条标准步骤（新增引擎 / 命令 /
-  测试 / 文档 / ADR），每条点名必须先改哪个文件（inventory 登记、
-  `cliutil.py` 约定、`check_all.py` 门禁、目录树、ADR 编号表）。
 
 ### 变更
 
@@ -61,6 +60,11 @@
   Windows 矩阵失效）。
 
 ### 修复
+
+- RPG Maker 烘焙先验证必需字体，写入插件译文后再统一字体，并在覆盖文件前备份原内容。
+- XP3 文件名长度按 UTF-16 编码单元写入。重复打包时排除已有输出包。
+- Wolf RPG 解包保留多层目录。Unity 文本提取从实际存在的 Addressables 目录读取。
+- JavaScript 语法诊断按解析器的 UTF-8 字节位置提取片段。
 
 - `os.path.relpath` 在 Windows 上跨驱动器会抛 `ValueError`，把「图片转换
   失败的告警」升级成整个构建崩溃；新增 `platform.display_path` 统一处理。
@@ -74,7 +78,7 @@
 ### 弃用
 
 以下工具已被取代，保留一个宽限期的唯一理由是「万一还在引用」；新流程一律
-用括号里的替代入口。删除时机见 `docs/reference/deprecation-policy.md`。
+用括号里的替代入口。
 
 - **`tools/plain_to_translated.py`** → `translation.cli bake`（旧 `===KEY===`
   纯文本格式，v1 流程遗留）。
@@ -83,6 +87,7 @@
 
 ### 删除
 
+- 移除 `docs/` 和依赖该目录的检查。引擎能力、数据格式与运行约束由代码和测试维护。
 - **`tools/extract_text.py`** 已删除，替代入口为 `translation.cli prepare`；删除前已确认零导入者、inventory 记录和替代入口测试均已同步。
 - **`superseded/` 归档目录整体移除**（窗口截图工具 + WSL 包装 + 其单测）。
   删除理由不是「换了工具」而是**政策禁止**：`AGENTS.md` 明写需要验证画面时

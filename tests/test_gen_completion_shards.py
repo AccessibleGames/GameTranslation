@@ -2,7 +2,7 @@
 """Unit tests for tools/gen_completion_shards.py - the completion-pass shard
 generator (residual text, story order).
 
-Contract under test (docs/translation.md + the chunk contract in AGENTS.md):
+Contract under test:
 - every chunk gets chunk_NN.ja.txt (keys only, plain_io escaping),
   chunk_NN.context.md (rules + tone + carry-over + scene transcript) and
   chunk_NN.meta.json (which maps the chunk spans);

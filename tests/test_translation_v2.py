@@ -787,6 +787,45 @@ def test_append_batch_rejects_a_broken_json_value(tmp_path):
     assert rawlib.append_batch(work, batch)["added"] == 1
 
 
+@pytest.mark.parametrize("plugin_source", [
+    "var $plugins = [];",
+    "var $plugins = [{invalid}];",
+])
+def test_extract_reports_unusable_plugin_arrays(game, work, plugin_source):
+    path = os.path.join(game, "js", "plugins.js")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(plugin_source)
+
+    stats = mvkeys.extract(game, work)
+
+    assert stats["skipped"]["plugin"] == 1
+    assert all(entry["kind"] != "plugin" for entry in mvkeys.load_keys(work))
+    assert stats["keys"] > 0
+
+
+def test_failed_key_serialization_leaves_existing_key_table(game, work, monkeypatch):
+    mvkeys.extract(game, work)
+    keys_path = os.path.join(work, "keys.jsonl")
+    with open(keys_path, "rb") as handle:
+        original = handle.read()
+    serialize = json.dumps
+    calls = 0
+
+    def fail_second_key(entry, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise ValueError("fixture serialization failure")
+        return serialize(entry, *args, **kwargs)
+
+    monkeypatch.setattr(mvkeys.json, "dumps", fail_second_key)
+    with pytest.raises(ValueError, match="fixture serialization failure"):
+        mvkeys.extract(game, work)
+
+    with open(keys_path, "rb") as handle:
+        assert handle.read() == original
+
+
 def test_apply_rewrites_rerun_is_a_no_op(work, game):
     mvkeys.extract(game, work)
     _fill_library(work, lambda entry, text: "\u6742\u9c7c")
@@ -823,6 +862,45 @@ def test_apply_rewrites_scope_and_report(work, game):
     assert report["applied"][-1]["scope"] == "ids"
     assert report["applied"][-1]["affected"] == 1
     assert os.path.isfile(os.path.join(work, "rewrite_report.json"))
+
+
+@pytest.mark.parametrize("invalid", [
+    [],
+    {"old": "", "new": "result"},
+    {"old": "middle", "new": "result", "ids": "key"},
+])
+def test_invalid_rewrite_keeps_previous_library_and_report(tmp_path, invalid):
+    library = tmp_path / rawlib.LIBRARY_NAME
+    original = b"# keep this note\n@@@key@@@\nsource\n"
+    library.write_bytes(original)
+    report = tmp_path / "rewrite_report.json"
+    report.write_bytes(b"{}\n")
+    rules = tmp_path / "rewrites.jsonl"
+    rawlib.append_jsonl(rules, {"old": "source", "new": "middle"})
+    rawlib.append_jsonl(rules, invalid)
+
+    with pytest.raises(ValueError, match=r"rewrites\.jsonl\[1\]"):
+        rawlib.apply_rewrites(tmp_path)
+
+    assert library.read_bytes() == original
+    assert report.read_bytes() == b"{}\n"
+
+
+def test_rewrite_count_includes_keys_beyond_detail_limit(tmp_path):
+    library = tmp_path / rawlib.LIBRARY_NAME
+    original = {f"key-{index}": "source" for index in range(51)}
+    rawlib.write_library(library, original)
+    rules = tmp_path / "rewrites.jsonl"
+    rawlib.append_jsonl(rules, {"old": "source", "new": "middle"})
+    rawlib.append_jsonl(rules, {"old": "middle", "new": "final", "ids": ["key-0"]})
+
+    report = rawlib.apply_rewrites(tmp_path)
+
+    assert report["changed_keys"] == 51
+    assert len(report["applied"][0]["ids"]) == 50
+    assert rawlib.read_library(library) == dict.fromkeys(original, "middle") | {
+        "key-0": "final",
+    }
 
 
 # ---------------------------------------------------------------- gates

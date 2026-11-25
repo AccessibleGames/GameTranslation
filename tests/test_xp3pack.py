@@ -43,6 +43,60 @@ from kirikiri import xp3tool
 MAGIC = b"XP3\r\n \n\x1a\x8b\x67\x01"
 
 
+def _write_font(path, upm, characters, width):
+    from fontTools.fontBuilder import FontBuilder
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    font = FontBuilder(upm, isTTF=True)
+    names = {ord(character): f"uni{ord(character):04X}" for character in characters}
+    glyph_order = [".notdef", *names.values()]
+    font.setupGlyphOrder(glyph_order)
+    font.setupCharacterMap(names)
+    font.setupGlyf({name: TTGlyphPen(None).glyph() for name in glyph_order})
+    font.setupHorizontalMetrics(dict.fromkeys(glyph_order, (width, 0)))
+    font.setupHorizontalHeader(ascent=width, descent=-width)
+    font.setupNameTable({"familyName": "Fixture", "styleName": "Regular"})
+    font.setupOS2()
+    font.setupPost()
+    font.save(path)
+
+
+def test_font_merge_scales_both_faces_and_prefers_primary_glyphs(tmp_path):
+    from fontTools.ttLib import TTCollection, TTFont
+
+    from kirikiri import merge_font
+
+    primary = tmp_path / "primary.ttf"
+    fallback = tmp_path / "fallback.ttf"
+    collection_path = tmp_path / "fallback.ttc"
+    output = tmp_path / "out" / "merged.ttf"
+    _write_font(primary, 1000, "AB", 250)
+    _write_font(fallback, 2000, "BC", 750)
+    collection = TTCollection()
+    with TTFont(fallback) as face:
+        collection.fonts = [face]
+        collection.save(collection_path)
+
+    assert merge_font.main([str(primary), str(collection_path), str(output),
+                            "--upm", "2000"]) == 0
+
+    with TTFont(output) as merged:
+        cmap = merged.getBestCmap()
+        assert merged["head"].unitsPerEm == 2000
+        assert set(cmap) == {ord(character) for character in "ABC"}
+        assert merged["hmtx"].metrics[cmap[ord("B")]][0] == 500
+        assert merged["hmtx"].metrics[cmap[ord("C")]][0] == 750
+    assert list(output.parent.iterdir()) == [output]
+
+
+def test_font_merge_cli_names_missing_input(tmp_path, capsys):
+    from kirikiri import merge_font
+
+    missing = tmp_path / "missing.ttf"
+    assert merge_font.main([str(missing), str(missing), str(tmp_path / "out.ttf")]) == 1
+    assert str(missing) in capsys.readouterr().err
+
+
 def write_tree(root, files):
     """files = [(rel_path, bytes)]; creates parent directories as needed."""
     for rel, data in files:
@@ -221,6 +275,41 @@ class TestPack:
         xp3tool.extract_all(str(out), str(ex))
         for rel, content in files_data:
             assert (ex / rel).read_bytes() == content
+
+    def test_supplementary_character_in_entry_name(self, tmp_path):
+        source = tmp_path / "source"
+        name = "example-\U0001f31f.ks"
+        write_tree(source, [(name, b"data")])
+        archive = tmp_path / "out.xp3"
+
+        files, _ = xp3pack.pack(source, archive)
+
+        assert files[0][0] == name
+        xp3pack.verify(archive, files)
+
+    def test_existing_archive_inside_source_is_excluded_on_repack(self, tmp_path):
+        write_tree(tmp_path, [("scene.ks", b"data")])
+        archive = tmp_path / "out.xp3"
+        xp3pack.pack(tmp_path, archive)
+        original = archive.read_bytes()
+
+        files, _ = xp3pack.pack(tmp_path, archive)
+
+        assert [name for name, _ in files] == ["scene.ks"]
+        assert archive.read_bytes() == original
+
+    def test_failed_pack_keeps_existing_archive(self, tmp_path):
+        source = tmp_path / "source"
+        write_tree(source, [("scene.ks", b"data")])
+        archive = tmp_path / "out.xp3"
+        xp3pack.pack(source, archive)
+        original = archive.read_bytes()
+
+        with pytest.raises(zlib.error):
+            xp3pack.pack(source, archive, zlib_level=100)
+
+        assert archive.read_bytes() == original
+        assert not list(tmp_path.glob(".gt-tmp-*"))
 
     def test_binary_content(self, tmp_path):
         indir = tmp_path / "in"

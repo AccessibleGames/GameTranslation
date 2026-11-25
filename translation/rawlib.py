@@ -1,34 +1,17 @@
 #!/usr/bin/env python3
-"""rawlib.py - the raw translation library, rewrites, and the five hard gates.
+"""Read and validate the line-oriented translation library.
 
-The translation subagent never touches JSON: it appends *raw* text to one file
-(design: `.tmp/TRANSLATION_WORKFLOW_V2.md`).  Escaping happens here and only
-here, in :func:`to_json` - a JSON encoder already knows how to escape real
-newlines and backslashes, so the subagent never has to.
-
-Library format (append-only, one file, zero escaping)::
-
-    @@@data/Map003.json#events[2].pages[0].list[7].parameters[0]@@@
-    raw translation, real newlines, control codes copied literally
-    @@@<next id>@@@
-    ...
-
-Everything between a header line and the next header line is the value - no
-quoting, no continuation markers, no line-count contract.  The only rule is
-that no value may contain a line starting with ``@@@`` (guaranteed by the
-extractor: no extracted source string starts that way).
-
-Operations:
-
-``read_library`` / ``write_library`` / ``append_block``  - IO (last wins per id)
-``apply_rewrites``   - execute the subagent's decided rewrites (old -> new)
-``to_json``          - raw library + keys.jsonl -> translated.json (escaping)
-``run_gates``        - the five hard gates; baking is refused unless all pass
+A block starts with an ``@@@id@@@`` header and ends at the next header or EOF.
+Each value is literal text, with one framing LF after its final character.
+Later blocks with the same ID replace the value without changing key order.
 """
 import json
 import os
 import re
 from collections import OrderedDict
+from collections.abc import Mapping
+
+from rpgmaker import io_boundary
 
 from . import mvkeys
 from .codes import (
@@ -56,46 +39,8 @@ GATE_ORDER = ("coverage", "control_codes", "kana", "line_breaks", "pending")
 
 
 def read_library(path):
-    """Parse the library into ``OrderedDict(id -> text)``; later blocks win.
-
-    A block is the lines between two ``@@@id@@@`` headers, joined with
-    newlines - and a **trailing newline is a real character**, not padding:
-    the writer emits one blank line for it, so stripping it here makes such a
-    value unrepresentable.  That is not theoretical: MZ data has fields whose
-    text ends with a newline (``data/Items.json`` descriptions), the line-break
-    gate compares newline counts, so a value that has to keep the newline was
-    rejected forever - 10 keys of one real MZ build could never be translated
-    and the coverage gate (every key needs a value) could never go green.
-    A hand-written batch with a stray trailing blank line now fails that gate
-    with a clear message instead of being silently normalized away.
-
-    The file is opened with ``newline="\n"`` on purpose, and that is subtle.
-    The two obvious settings are both wrong:
-
-    * the default (universal newlines) folds a lone ``\r`` into a line break,
-      so a value ``"a\rb"`` came back as ``"a\nb"``;
-    * ``newline=""`` looks like the fix ("do not translate line endings") but
-      still **splits** on a lone ``\r`` - it only stops translating what it
-      yields.  Measured: ``b"@@@k@@@\na\rb\n"`` gives the lines
-      ``['@@@k@@@\n', 'a\r', 'b\n']`` in both modes, i.e. three lines, and the
-      CR is gone once ``bare`` strips it.
-
-    Only ``newline="\n"`` treats a bare CR as ordinary data.  It does not lose
-    the CRLF contract: ``rstrip("\r")`` still strips the CR of a ``\r\n`` pair,
-    so such a file reads exactly as before.
-
-    Why this matters: ``append_block`` writes the value verbatim, so a bare CR
-    reached the disk and could never be read back - a value the library could
-    store but not load.  That was a real latent defect, not a theoretical one;
-    the old property-test generator hid it by filtering ``\r`` out.
-
-    Two shapes still cannot round-trip, both pinned by
-    ``TestBareCarriageReturn``: a value *ending* in a bare CR (its CR is
-    indistinguishable from a CRLF tail), and an interior ``\r\n`` (reassembled
-    as two lines and rejoined with LF).  Both are acceptable because the
-    line-break gate counts ``\n`` only (:func:`line_problems`), and a
-    translation value is plain text.
-    """
+    """Parse blocks while preserving trailing LF and interior bare CR."""
+    # Iterate on LF only. CR at the end of a line belongs to a CRLF frame.
     values = OrderedDict()
     current = None
     chunks = []
@@ -123,55 +68,33 @@ def read_library(path):
     return values
 
 
+def _format_blocks(values: Mapping[str, str]) -> str:
+    return "".join(f"@@@{key}@@@\n{text}\n" for key, text in values.items())
+
+
 def write_library(path, values):
-    """Rewrite the whole library from ``{id: text}`` (used after rewrites)."""
-    with open(path, "w", encoding="utf-8", newline="\n") as handle:
-        for key, text in values.items():
-            handle.write(f"@@@{key}@@@\n{text}\n")
+    """Replace the library with the given blocks in mapping order."""
+    io_boundary.write_text(path, _format_blocks(values), ensure_parent=False)
     return path
 
 
 def append_block(path, key_id, text):
-    """Append one translated block (the subagent's only write operation)."""
+    """Append one translated block."""
     if "@@@" in key_id:
         raise ValueError(f"id must not contain '@@@': {key_id!r}")
-    with open(path, "a", encoding="utf-8", newline="\n") as handle:
-        handle.write(f"@@@{key_id}@@@\n{text}\n")
+    io_boundary.append_text(path, _format_blocks({key_id: text}), ensure_parent=False)
     return path
 
 
-def read_jsonl(path):
-    """Read a JSONL file as a list of objects (missing file -> [])."""
-    if not os.path.isfile(path):
-        return []
-    out = []
-    with open(path, encoding="utf-8") as handle:
-        for number, line in enumerate(handle, 1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                out.append(json.loads(line))
-            except ValueError as error:
-                raise ValueError("%s:%d: bad JSON line (%s)"
-                                 % (path, number, error)) from error
-    return out
+read_jsonl = io_boundary.read_jsonl
 
 
 def read_jsonl_report(path):
-    """Read JSONL tolerantly: ``(records, errors)`` instead of raising.
-
-    State files are written by hand by the translator (``pending.jsonl`` is the
-    one that keeps growing), and a single unescaped backslash used to crash the
-    whole finishing chain - gates and status both - which is a silly way to lose
-    a run.  A broken line is skipped here and reported as
-    ``(line number, message)`` so the caller can turn it into a **failure**
-    rather than a false pass: skipping quietly would hide an open question.
-    """
+    """Return valid records and (line number, error) pairs for damaged rows."""
     records, errors = [], []
     if not os.path.isfile(path):
         return records, errors
-    with open(path, encoding="utf-8", errors="replace") as handle:
+    with open(path, encoding="utf-8-sig", errors="replace") as handle:
         for number, line in enumerate(handle, 1):
             line = line.strip()
             if not line:
@@ -184,9 +107,8 @@ def read_jsonl_report(path):
 
 
 def append_jsonl(path, record):
-    """Append one object to a JSONL file (one line, UTF-8, LF)."""
-    with open(path, "a", encoding="utf-8", newline="\n") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    """Append a JSONL record to an existing work directory."""
+    io_boundary.append_jsonl(path, record, ensure_parent=False)
     return path
 
 
@@ -224,13 +146,20 @@ def apply_rewrites(work_dir, report_path=None):
     values = read_library(library_path)
     rewrites = read_jsonl(os.path.join(work_dir, "rewrites.jsonl"))
     applied = []
+    changed_keys = set()
     for index, rule in enumerate(rewrites):
+        if not isinstance(rule, dict):
+            raise ValueError(f"rewrites.jsonl[{index}]: expected an object")
         old, new = rule.get("old"), rule.get("new")
         if not isinstance(old, str) or not isinstance(new, str) or not old:
-            raise ValueError("rewrites.jsonl[%d]: needs non-empty 'old'/'new'"
+            raise ValueError("rewrites.jsonl[%d]: needs a non-empty 'old' and a string 'new'"
                              % index)
         scope = rule.get("ids")
-        targets = [k for k in (scope or values) if k in values]
+        if scope is not None and (
+            not isinstance(scope, list) or any(not isinstance(key, str) for key in scope)
+        ):
+            raise ValueError(f"rewrites.jsonl[{index}]: 'ids' must be a list of strings")
+        targets = (key for key in (scope or values) if key in values)
         hits = []
         matched = 0
         for key in targets:
@@ -242,8 +171,7 @@ def apply_rewrites(work_dir, report_path=None):
             if updated != text:
                 values[key] = updated
                 hits.append(key)
-        if hits:
-            write_library(library_path, values)
+        changed_keys.update(hits)
         applied.append({
             "old": old, "new": new, "reason": rule.get("reason") or "",
             "scope": "ids" if scope else "all",
@@ -251,13 +179,13 @@ def apply_rewrites(work_dir, report_path=None):
             "already_up_to_date": matched - len(hits),
             "ids": hits[:50],
         })
-    report = {"rules": len(rewrites), "changed_keys":
-              len({k for entry in applied for k in entry["ids"]}),
+    # Publish only after all rules have been applied successfully in memory.
+    if changed_keys:
+        write_library(library_path, values)
+    report = {"rules": len(rewrites), "changed_keys": len(changed_keys),
               "applied": applied}
     out = report_path or os.path.join(work_dir, "rewrite_report.json")
-    with open(out, "w", encoding="utf-8", newline="\n") as handle:
-        json.dump(report, handle, ensure_ascii=False, indent=1)
-        handle.write("\n")
+    io_boundary.dump_json(out, report, ensure_parent=False)
     return report
 
 
@@ -289,16 +217,12 @@ def to_json(work_dir, out_path=None):
     json_path = out_path or os.path.join(work_dir, "translated.json")
     ids_path = os.path.join(out_dir, "translated_ids.json")
     for path, payload in ((json_path, by_text), (ids_path, by_id)):
-        with open(path, "w", encoding="utf-8", newline="\n") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=1)
-            handle.write("\n")
+        io_boundary.dump_json(path, payload, ensure_parent=False)
     report = {"keys": len(keys), "translated": len(by_id),
               "unique_sources": len(by_text), "conflicts": conflicts[:50],
               "translated_json": json_path, "translated_ids": ids_path}
-    with open(os.path.join(work_dir, "to_json_report.json"), "w",
-                 encoding="utf-8", newline="\n") as handle:
-        json.dump(report, handle, ensure_ascii=False, indent=1)
-        handle.write("\n")
+    io_boundary.dump_json(os.path.join(work_dir, "to_json_report.json"), report,
+                          ensure_parent=False)
     return report
 
 
@@ -306,8 +230,7 @@ def _allowlist(work_dir):
     path = os.path.join(work_dir, "allow_kana.json")
     if not os.path.isfile(path):
         return []
-    with open(path, encoding="utf-8") as handle:
-        data = json.load(handle)
+    data = io_boundary.load_json(path)
     items = data.get("items") if isinstance(data, dict) else data
     return [item for item in (items or []) if isinstance(item, dict)
             and item.get("match")]
@@ -496,7 +419,10 @@ def validate_blocks(work_dir, values):
     (the library is append-only; a half-written batch is hard to unwind).
     """
     keys = {entry["id"]: entry for entry in mvkeys.load_keys(work_dir)}
-    items = _allowlist(work_dir)
+    return _validate_blocks(values, keys, _allowlist(work_dir))
+
+
+def _validate_blocks(values, keys, items):
     problems = []
     for key_id, text in values.items():
         entry = keys.get(key_id)
@@ -539,18 +465,16 @@ def append_batch(work_dir, batch_path, note=None, fix_leading=False):
             if restored != text:
                 values[key_id] = restored
                 fixed += 1
-    problems = validate_blocks(work_dir, values)
+    problems = _validate_blocks(values, keys, _allowlist(work_dir))
     if problems:
         return {"added": 0, "fixed": fixed, "problems": problems}
     library = os.path.join(work_dir, LIBRARY_NAME)
-    with open(library, "a", encoding="utf-8", newline="\n") as handle:
-        for key_id, text in values.items():
-            handle.write(f"@@@{key_id}@@@\n{text}\n")
+    io_boundary.append_text(library, _format_blocks(values), ensure_parent=False)
     if note:
         append_jsonl(os.path.join(work_dir, "progress.jsonl"),
                      {"note": note, "added": len(values),
                       "fixed_leading": fixed,
-                      "ids": list(list(values)[:3])})
+                      "ids": list(values)[:3]})
     return {"added": len(values), "fixed": fixed, "problems": []}
 
 
@@ -715,9 +639,7 @@ def run_gates(work_dir, out_path=None):
         "gates": gates,
     }
     path = out_path or os.path.join(work_dir, "gate_report.json")
-    with open(path, "w", encoding="utf-8", newline="\n") as handle:
-        json.dump(report, handle, ensure_ascii=False, indent=1)
-        handle.write("\n")
+    io_boundary.dump_json(path, report, ensure_parent=False)
     return report
 
 

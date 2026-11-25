@@ -5,7 +5,7 @@ chunks into translated.json, with an optional terminology sweep.
 Consolidated from the long-run session merge script. Sweep rules come from a
 JSON list [[from, to], ...] or {"from": "to"} file, applied IN ORDER.
 
-WARNING (substring bomb, docs/translation.md §4.2): a sweep target
+WARNING (substring bomb): a sweep target
 that itself contains the prefix of another rule (色经验值->色色经验值) will be
 re-hit if applied later. Order rules longest-first, and afterwards re-scan
 the output for any malformed target strings.

@@ -28,15 +28,13 @@ from pathlib import Path
 import typer
 
 from rpgmaker import clean as clean_mod
-from rpgmaker import cliutil, deliver, detect, doctor, evb
+from rpgmaker import cliutil, deliver, detect, doctor, evb, io_boundary
 from rpgmaker import compress as compress_mod
 
 log = logging.getLogger("rpgmaker.cli")
 
-app = typer.Typer(add_completion=False, no_args_is_help=True,
-                  help="RPG Maker MZ/MV: unpack, clean, package, deliver.")
-tyrano = typer.Typer(add_completion=False, no_args_is_help=True,
-                     help="TyranoScript / TyranoBuilder: clean, localize, package, deliver.")
+app = cliutil.app(help="RPG Maker MZ/MV: unpack, clean, package, deliver.")
+tyrano = cliutil.app(help="TyranoScript / TyranoBuilder: clean, localize, package, deliver.")
 
 # One definition of -v/-q/--log-file for both apps (rpgmaker/cliutil.py).
 cliutil.app_options(app)
@@ -60,15 +58,8 @@ def resolve_web_root(game_dir: str) -> str:
 def _own(what: str, **paths) -> None:
     """Declare the storage side of every path a command touches.
 
-    `cliutil.own_paths` is the shared gate (AGENTS.md CRITICAL cross-system
-    rule); here it is wrapped so a refusal reaches the operator as one logged
-    line + exit 1 instead of a traceback.  These commands are invoked through
-    Typer's `standalone_mode`, which does not translate the error the way
-    `cliutil.run()` does for the `tools/` commands.
-
-    Placed before `resolve_web_root()` and the first `open`/`makedirs` in each
-    command body: the point of the rule is to refuse *before* touching the
-    other side, and a detection walk is already a read.
+    Run before engine detection, which already reads the game tree. Keep the
+    logged refusal format used by both pipeline commands.
     """
     try:
         cliutil.own_paths(what, **paths)
@@ -192,9 +183,8 @@ def cmd_tyrano_localize_ui(
     shows Japanese there.  Entries are matched by key, unknown keys are
     reported and something that fails the mechanical gate is refused.
     """
-    import json
-
     from tyrano import ui_lang
+
     _own("localize the tyrano engine UI", out=out, mapping=mapping, dump=dump)
     lang = ui_lang.find_lang_file(out)
     if not lang:
@@ -203,14 +193,11 @@ def cmd_tyrano_localize_ui(
     strings = ui_lang.extract(lang)
     log.info("localize-ui: %s carries %d engine UI strings", lang, len(strings))
     if dump:
-        with open(dump, "w", encoding="utf-8") as f:
-            json.dump(strings, f, ensure_ascii=False, indent=4)
-            f.write("\n")
+        io_boundary.dump_json(dump, strings, indent=4, ensure_parent=False)
         log.info("wrote %s", dump)
     if not mapping:
         return
-    with open(mapping, encoding="utf-8") as f:
-        table = json.load(f)
+    table = io_boundary.load_json(mapping)
     report = ui_lang.apply_map(lang, table, dry_run=dry_run)
     log.info("localize-ui: %d applied, %d not in this lang.js, %d refused",
              len(report["applied"]), len(report["missing"]),
@@ -254,37 +241,21 @@ def cmd_tyrano_deliver(
 
 # ------------------------------------------------------------------ entry
 
-def _prog_name(argv, default):
-    """Keep the historical program name in help/usage output."""
-    if argv is not None:
-        return default
-    return Path(sys.argv[0]).name or default
-
-
-def _run(command, argv, prog_name, default_prog):
-    """Run a Typer app with a test-friendly contract.
-
-    Success returns normally (no SystemExit(0)), a failure keeps raising
-    SystemExit with its exit code - which is what callers and tests expect,
-    and what `python pipeline.py ...` produces either way.
-    """
-    try:
-        command(args=list(argv) if argv is not None else None,
-                prog_name=prog_name or default_prog)
-    except SystemExit as exc:
-        if exc.code in (0, None):
-            return
-        raise
+def _run(application: typer.Typer, argv, default_prog: str) -> None:
+    prog = (Path(sys.argv[0]).name or default_prog) if argv is None else default_prog
+    status = cliutil.run(application, argv, prog=prog)
+    if status:
+        raise SystemExit(status)
 
 
 def main(argv=None) -> None:
     """Entry point for `python pipeline.py ...` and the `gt` script."""
-    _run(app, argv, _prog_name(argv, None), "pipeline")
+    _run(app, argv, "pipeline")
 
 
 def tyrano_main(argv=None) -> None:
     """Entry point for `python tyrano/pipeline.py ...`."""
-    _run(tyrano, argv, _prog_name(argv, None), "tyrano-pipeline")
+    _run(tyrano, argv, "tyrano-pipeline")
 
 
 if __name__ == "__main__":  # pragma: no cover - convenience

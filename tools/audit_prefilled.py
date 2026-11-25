@@ -4,7 +4,7 @@ flag values that still contain kana lines (multi-line block keys where one
 line missed the dict), so leftover lines are hand-translated early instead of
 polluting the bake.
 
-Consolidated from the long-run session audit_prefilled.py (docs/translation.md).
+Consolidated from the long-run session audit_prefilled.py.
 
 Usage:
     python -m tools.audit_prefilled <prefilled.json> [--out <fixed.json>]

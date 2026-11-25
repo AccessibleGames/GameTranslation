@@ -3,7 +3,7 @@
 MTool/AI translation dict into an extracted template (build_translation.py)
 so the values can be baked statically.
 
-Contract under test (module docstring + docs/translation.md):
+Contract under test:
 - matching is by SOURCE text: the dict is keyed on the displayed Japanese
   string (control codes stripped, speaker-name first line dropped, note text
   from "<SG説明"), so a reversed dict (Chinese key -> Japanese value) harvests
