@@ -47,8 +47,6 @@ jobs:
         run: uv run --no-sync python -m ruff check .
       - name: Type budgets (mypy)
         run: uv run --no-sync python -m tools.mypy_check
-      - name: Documentation tree is in sync with the repo
-        run: uv run --no-sync python -m tools.check_docs
       - name: Public-repo hygiene
         run: uv run --no-sync python -m pytest tests/test_repo_hygiene.py -q -n 0
       - name: Skip inventory

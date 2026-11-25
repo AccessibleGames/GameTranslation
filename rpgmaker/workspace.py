@@ -5,7 +5,7 @@ Split out of the former god-module ``rpgmaker/config.py``.
 This module owns exactly one responsibility: resolving the directory that
 holds a game's in-progress work.
 
-Per ``docs/reference/local-layout.md`` the order is:
+Workspaces are resolved in this order:
 
     1. an explicit ``--work-dir`` on the command line
     2. ``GT_WORK_ROOT`` (one directory holding several workspaces)

@@ -16,7 +16,6 @@ block ``required`` before any file is copied.
 """
 import hashlib
 import json
-import os
 
 import pytest
 
@@ -50,12 +49,18 @@ def _write_manifest(directory, fonts, schema_version=1):
     return directory
 
 
-def _load_example():
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    path = os.path.join(repo_root, "docs", "reference", "schema",
-                        "font-manifest.example.json")
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
+def _example_manifest():
+    return {
+        "schema_version": 1,
+        "fonts": [
+            _entry(filename="primary.otf", postscript_name="ExampleSans",
+                   size_bytes=len(FONT_BYTES)),
+            _entry("common-ja", "fallback.otf", coverage={
+                "covers_gb_simplified": False,
+                "covers_japanese_kana": True,
+            }),
+        ],
+    }
 
 
 @pytest.fixture
@@ -113,7 +118,7 @@ class TestRequiredIsMandatory:
             fontpolicy.decide_font("required", fonts_dir=tmp_path / "absent")
         message = str(excinfo.value)
         assert "cannot be satisfied" in message
-        assert "docs/reference/local-layout.md" in message
+        assert str(tmp_path / "absent") in message
 
     def test_a_missing_font_file_fails(self, fonts):
         (fonts / "common.otf").unlink()
@@ -445,31 +450,15 @@ class TestCoverageWarnings:
         assert record.license == "OFL-1.1"
 
 
-# --------------------------------------------------------------------------
-# The example manifest that ships in the repo
-# --------------------------------------------------------------------------
-class TestShippedExample:
-    def test_the_example_manifest_is_valid_and_placeholder_only(self):
-        raw = _load_example()
-        assert raw["schema_version"] == 1
-        assert raw["fonts"], "the example must show at least one entry"
-        for entry in raw["fonts"]:
-            assert set(entry) >= set(fontpolicy._REQUIRED_FIELDS)
-            # The id is a *logical* name the policies and CLI flags refer to,
-            # so it is concrete, and `purpose` describes a role rather than a
-            # file.  Anything that would name a real font is a placeholder, so
-            # a clean checkout never carries a font name or a real checksum.
-            assert entry["id"] in ("common-zh", "common-ja")
-            assert entry["sha256"] == "0" * 64
-            for name in ("file", "family", "postscript_name", "license"):
-                value = entry.get(name)
-                if isinstance(value, str):
-                    assert value.startswith("<"), (name, value)
-
-    def test_the_example_matches_the_loader_contract(self, tmp_path):
-        raw = _load_example()
-        directory = _write_manifest(tmp_path / "fonts", raw["fonts"])
-        # Only the unresolved checksums keep it from being usable; the entry
-        # shape itself must satisfy the validator.
-        problems = fontpolicy.load_manifest(directory).problems
-        assert not [p for p in problems if "is not" in p or "missing" in p]
+def test_manifest_can_register_primary_and_fallback_faces(tmp_path):
+    raw = _example_manifest()
+    directory = _write_manifest(tmp_path / "fonts", raw["fonts"], raw["schema_version"])
+    manifest = fontpolicy.load_manifest(directory)
+    assert not manifest.problems
+    primary = manifest.get("common-zh")
+    assert primary.postscript_name == "ExampleSans"
+    assert primary.size_bytes == len(FONT_BYTES)
+    assert primary.covers_gb_simplified is True
+    fallback = manifest.get("common-ja")
+    assert fallback.covers_gb_simplified is False
+    assert fallback.coverage["covers_japanese_kana"] is True

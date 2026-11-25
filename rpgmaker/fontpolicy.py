@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """fontpolicy.py - whether the project font is applied, and on what evidence.
 
-Split out of the former god-module ``rpgmaker/config.py``.
-
 :mod:`rpgmaker.assets` answers "which file".  This module answers the two
 questions that must not be answered silently:
 
-* **Should it be applied at all?**  Three policies, from
-  ``docs/reference/local-layout.md`` section 5:
+* **Should it be applied at all?**  Three policies:
 
   ``required``
       the project standard CJK font is mandatory - this is the default for a
@@ -25,14 +22,12 @@ questions that must not be answered silently:
 * **Is the registered asset the file the manifest describes?**  The manifest
   in ``.asset/fonts/manifest.json`` is the only authority for the logical id
   used by policies and CLI flags, and its ``sha256`` is what makes a swapped
-  or truncated font file detectable (schema:
-  ``docs/reference/schema/font-manifest.schema.json``).
+  or truncated font file detectable.
 
 Validation is hand-written rather than delegated to ``jsonschema``: the shape
 is small and fixed, and a new runtime dependency to check six string fields
 would be a poor trade (the machine config is validated the same way, by
-hand).  The JSON schema stays the published contract for the file's author;
-this module is what actually enforces it.
+hand).
 
 Implementation detail that matters: a font name is never a filename in the
 repo.  The directory comes from the single private-layout mapping in
@@ -453,7 +448,7 @@ def _unsatisfied(policy, problem, fonts_dir):
     if policy == "required":
         raise FontPolicyError(
             f"font policy 'required' cannot be satisfied: {problem}. Register the "
-            f"font in {_fonts_dir(fonts_dir)} (see docs/reference/local-layout.md sections 4-5), "
+            f"font in {_fonts_dir(fonts_dir) / MANIFEST_NAME}, "
             "name one with --cjk-font, set CJK_FONT_PATH, or run with "
             "--font-policy auto/preserve to keep the game's own font.")
     warning = (f"font policy 'auto': the project font was not applied - {problem}")

@@ -65,7 +65,7 @@ class TestTheGateTable:
         `--only`, and what the summary table prints.
         """
         names = {gate.name for gate in ca.GATES}
-        assert {"hygiene", "compile", "lint", "docs", "tests"} <= names
+        assert {"hygiene", "compile", "lint", "tests"} <= names
 
     def test_every_gate_names_a_real_command(self):
         for gate in ca.GATES:
@@ -75,7 +75,7 @@ class TestTheGateTable:
 
     def test_the_mandatory_gates_are_not_optional(self):
         mandatory = {gate.name for gate in ca.GATES if gate.required}
-        assert {"hygiene", "compile", "lint", "docs", "tests"} <= mandatory
+        assert {"hygiene", "compile", "lint", "tests"} <= mandatory
 
     def test_lock_is_optional_and_dependency_gated(self):
         """`uv` is a convenience: a machine without it must not fail the run."""
@@ -96,7 +96,7 @@ class TestTheGateTable:
 class TestSelect:
     def test_the_default_is_every_gate_that_does_not_measure_coverage(self):
         names = [gate.name for gate in ca._select((), (), False, False)]
-        assert names == ["hygiene", "compile", "lint", "docs", "tests",
+        assert names == ["hygiene", "compile", "lint", "tests",
                          "types", "lock", "skips"]
 
     def test_coverage_replaces_the_plain_suite(self):
@@ -108,7 +108,7 @@ class TestSelect:
     def test_fast_drops_only_the_suites(self):
         """The cheap gates stay: they are what catches a mistake early."""
         names = [gate.name for gate in ca._select((), (), True, False)]
-        assert names == ["hygiene", "compile", "lint", "docs", "types",
+        assert names == ["hygiene", "compile", "lint", "types",
                          "lock", "skips"]
 
     def test_fast_with_coverage_still_drops_the_measurement(self):
@@ -116,17 +116,17 @@ class TestSelect:
         assert "coverage" not in names and "floors" not in names
 
     def test_only_narrows_to_the_named_gates(self):
-        names = [g.name for g in ca._select(("lint", "docs"), (), False, False)]
-        assert names == ["lint", "docs"]
+        names = [g.name for g in ca._select(("lint", "types"), (), False, False)]
+        assert names == ["lint", "types"]
 
     def test_only_keeps_the_table_order_not_the_argument_order(self):
         """The order is the dependency order (cheap, then expensive)."""
-        names = [g.name for g in ca._select(("docs", "lint"), (), False, False)]
-        assert names == ["lint", "docs"]
+        names = [g.name for g in ca._select(("lint", "hygiene"), (), False, False)]
+        assert names == ["hygiene", "lint"]
 
     def test_skip_removes_a_gate(self):
         names = [g.name for g in ca._select((), ("tests",), False, False)]
-        assert names == ["hygiene", "compile", "lint", "docs", "types",
+        assert names == ["hygiene", "compile", "lint", "types",
                          "lock", "skips"]
 
     def test_an_unknown_name_is_an_error_not_a_silent_noop(self):

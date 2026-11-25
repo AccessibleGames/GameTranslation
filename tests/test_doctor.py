@@ -274,6 +274,7 @@ class TestRun:
         """A machine without git or the Windows bridge still translates games;
         doctor must say so instead of exiting 1 as though the environment were
         broken."""
+        monkeypatch.setattr(platform, "is_wsl", lambda: False)
         monkeypatch.setattr(tool_registry, "find_git", lambda: None)
         monkeypatch.setattr(tool_registry, "win_7z", lambda: None)
         assert doctor.run() == 0

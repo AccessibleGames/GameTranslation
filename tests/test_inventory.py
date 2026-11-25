@@ -159,7 +159,7 @@ class TestStatusIsMeaningful:
         naming `tests/test_screenshot_docs.py`, a file that never existed.  A
         register that points at nothing reads as documented and is not, so
         every target in a replacement is resolved here - both path shapes
-        (`tools/x.py`, `docs/y.md`) and dotted module paths
+        (`tools/x.py`, `tests/y.py`) and dotted module paths
         (`translation.cli`), because the live rows all use the latter.
 
         The scan asserts it actually resolved something: a gate whose whole

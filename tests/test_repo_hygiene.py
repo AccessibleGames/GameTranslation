@@ -16,14 +16,14 @@ version:
 It is deliberately narrow: it checks machine-path/username leaks.  Game
 names, adult vocabulary and promotion wording are checked against the local
 keyword table, which lives in the local private dictionary directory - see
-docs/reference/local-layout.md.
+rpgmaker.settings.
 """
 import os
 import re
 import subprocess
 from pathlib import Path
 
-import pytest
+from rpgmaker import tool_registry
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -54,8 +54,9 @@ def repo_files():
     Falling back to a disk walk keeps the test usable outside a checkout.
     """
     try:
+        git = tool_registry.find_git() or "git"
         out = subprocess.run(
-            ["git", "-C", str(REPO), "ls-files", "-z", "--cached", "--others",
+            [git, "-C", str(REPO), "ls-files", "-z", "--cached", "--others",
              "--exclude-standard"],
             capture_output=True, check=True, timeout=120).stdout
         names = [p for p in out.decode("utf-8", "surrogateescape").split("\0") if p]
@@ -100,8 +101,8 @@ def test_no_machine_profile_paths_in_tracked_files():
         "\n".join("  %s:%d  %s" % (p, ln, m) for p, ln, m, _u in found))
 
 
-@pytest.mark.parametrize("path", ["AGENTS.md", "docs/CONTRIBUTING.md"])
-def test_rule_files_use_placeholders_not_real_names(path):
+def test_rule_file_uses_placeholders_for_machine_paths():
+    path = "AGENTS.md"
     # the rule files legitimately quote the forbidden pattern, but only in its
     # placeholder form
     for pattern in (WIN_PROFILE, WSL_PROFILE):

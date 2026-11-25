@@ -263,7 +263,7 @@ class TestToolStatus:
     """
 
     EXPECTED = {
-        "git": "dev-only",
+        "git": "test-only",
         "powershell": "windows-bridge",
         "win7z": "windows-bridge",
     }
@@ -337,7 +337,7 @@ def test_no_dead_resolver_is_registered():
 
     An entry that nothing resolves hides the fact that the feature it
     described is gone - the same judgement that removed the ``ffprobe``
-    lookups (see docs/experience-misc.md 10.4).  ``doctor`` calling every
+    lookups.  ``doctor`` calling every
     resolver through ``getattr(tool_registry, name)`` does NOT count: it
     reports on a tool, it does not use one, so a resolver reachable only from
     doctor would still be dead.

@@ -351,12 +351,6 @@ class TestTheBoundaryIsActuallyUsed:
         names = {record.module for record in inventory.MODULES}
         assert "rpgmaker.io_boundary" in names
 
-    def test_it_is_documented_as_the_single_entry_point(self):
-        from pathlib import Path
-        tooling = Path(REPO_ROOT) / "docs" / "reference" / "tooling.md"
-        body = tooling.read_text(encoding="utf-8")
-        assert "io_boundary" in body
-
     def test_it_does_not_import_an_engine(self):
         """Core must not depend on an engine."""
         source = (os.path.join(REPO_ROOT, "rpgmaker", "io_boundary.py"))

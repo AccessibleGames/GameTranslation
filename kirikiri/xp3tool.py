@@ -3,7 +3,7 @@
 
 Handles the standard krkrz container: zlib-compressed or raw index blocks,
 0x80 indirect index pointers, raw/zlib file segments.  Byte-level parsing
-was proven against real games (see docs/kirikiri.md); keep it conservative.
+is retained for compatibility with existing archives.
 
 Some commercial releases ship *protected* archives (entry names replaced by a
 running sequence with no extension, payloads opaque).  The engine that reads

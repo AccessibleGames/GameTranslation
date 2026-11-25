@@ -1,36 +1,5 @@
 #!/usr/bin/env python3
-"""check_all.py - run every local gate in one command.
-
-Why this exists
---------------
-The pre-merge checklist is written down in three places (``AGENTS.md``,
-``docs/CONTRIBUTING.md``, ``README.md``) and executed by hand.  Two things go
-wrong with a hand-run checklist, and both were observed in this repo:
-
-* **a gate is forgotten.**  A commit that added a package-data file did not
-  re-run the wheel test; a commit that changed ``pyproject.toml`` did not
-  re-run ``uv lock``, and the next clean-environment run failed on a stale
-  lockfile.  Neither was caught locally.
-* **a gate silently degrades.**  A gate that needs a tool the machine does not
-  have (``ruff``, ``uv``) is easy to skip "just this once" and then never
-  noticed again.  This tool prints ``SKIP`` *with the missing dependency named*
-  and fails when a **mandatory** gate cannot run - never a silent pass.
-
-It is deliberately a thin runner, not a re-implementation: every gate shells
-out to the exact command the documentation names, so there is one definition of
-each check and the tool cannot pass while the documented command fails.
-
-    python -m tools.check_all                 # the five mandatory gates
-    python -m tools.check_all --coverage      # + serial coverage + floor gate
-    python -m tools.check_all --fast          # skip the full test suite
-    python -m tools.check_all --only lint --only docs
-    python -m tools.check_all --list
-
-CI remains the final authority: the runner proves a change is ready to push,
-not that the remote matrix passed.  Nothing here replaces
-``tests/test_repo_hygiene.py``'s scan or the coverage floors - those are gates
-among the others.
-"""
+"""Run the local quality gates using the active Python environment."""
 from __future__ import annotations
 
 import importlib.util
@@ -105,11 +74,6 @@ GATES: tuple = (
         "ruff, rules pinned in pyproject.toml",
         lambda root: [sys.executable, "-m", "ruff", "check", "."],
         needs=("ruff",),
-    ),
-    Gate(
-        "docs",
-        "docs tree matches the repo + documentation gates",
-        lambda root: [sys.executable, "-m", "tools.check_docs"],
     ),
     Gate(
         "tests",
@@ -284,7 +248,7 @@ def cmd(repo: Annotated[str, typer.Option(
             "--skip", metavar="NAME",
             help="skip these gates (repeatable)")] = None,
         fast: Annotated[bool, typer.Option(
-            "--fast", help="skip the full test suite (lint/docs/hygiene only)")]
+            "--fast", help="skip the full test suite and coverage")]
         = False,
         coverage: Annotated[bool, typer.Option(
             "--coverage",

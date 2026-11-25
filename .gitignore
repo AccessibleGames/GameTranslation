@@ -20,10 +20,10 @@ dist/
 .venv/
 
 # local private data: dictionaries (incl. adult word tables), passwords,
-# machine config, private policy notes.  See docs/reference/local-layout.md.
+# machine config, private policy notes. See rpgmaker/settings.py.
 .private/
 
-# local reusable font assets (binaries; manifest.json is tracked)
+# local reusable font assets and their manifest
 .asset/
 
 # legacy local data layout, replaced by the two dirs above; kept ignored so a

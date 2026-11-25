@@ -1,24 +1,14 @@
 # GameTranslation — 工作规则
 
-本文件是**强制规则**的唯一权威位置。它是 agent 启动时自动加载的入口，所以
-**只放规则与索引，不放操作细节**；各引擎的具体做法在 `docs/` 里，本文件
-只链接。
+本文件集中维护仓库规则。命令用法由 CLI 的 `--help` 提供，格式和实现约束写在对应代码旁。
 
 | 想知道 | 看这里 |
 |---|---|
-| 仓库目录树（唯一权威） | `docs/reference/repo-layout.md` |
-| 各引擎/能力/入口/状态的现状清单 | `docs/reference/support-matrix.md` |
-| 本地私有数据放哪（`.private`/`.asset`/workspace） | `docs/reference/local-layout.md` |
-| 文档导航（教程/操作指南/参考/原理） | `docs/index.md` |
-| 文档写作规范 | `docs/reference/doc-style.md` |
-| 打包与交付 | `docs/workflow.md` |
-| 翻译（v2 唯一流程） | `docs/translation.md` |
-| TyranoScript | `docs/tyrano.md` |
-| KiriKiri 翻译 | `docs/kirikiri.md` |
-| Wolf RPG | `docs/wolfrpg.md` |
-| Unity（含 IL2CPP / RM Unite） | `docs/engines/unity.md` |
-| 经验库（踩过的坑） | `docs/experience.md` |
-| 贡献流程 | `docs/CONTRIBUTING.md` |
+| 引擎能力与命令入口 | `rpgmaker/inventory.py` |
+| 本地数据与工作区 | `rpgmaker/settings.py`、`rpgmaker/workspace.py` |
+| 字体策略 | `rpgmaker/fontpolicy.py`、`translation/bake.py` |
+| 翻译合约 | `translation/cli.py`、`translation/rawlib.py`、`translation/mvkeys.py` |
+| 打包与交付 | `rpgmaker/cli.py`、`rpgmaker/archive.py`、`rpgmaker/deliver.py` |
 
 ## 公开仓库卫生（mandatory）
 
@@ -43,12 +33,10 @@ docs、README、commit message、文件名）都不允许出现下列内容；�
   成人题材专用缩写词；涉及成人内容一律用中性说法（adult scenes /
   成人内容）。
 - **游戏专属数据一律本地化**：每游戏词表（glossary/tone/notes）、成人
-  词表、作者名豁免表、系列预填字典等只放本地私有位置（逻辑位置见
-  `docs/reference/local-layout.md`）或 work 目录，**绝不写入或提交**。
+  词表、作者名豁免表、系列预填字典等只放本地私有位置（位置见 `rpgmaker/settings.py`）或 work 目录，**绝不写入或提交**。
 - **工具禁止硬编码游戏专属数据**：新写/改工具时，游戏专属参数（角色名
   表、作者名豁免、语气段、预填字典）一律走命令行参数/外部 JSON/
-  `--exempt` 注入；不得把某款游戏的数据写死在脚本里（污染类 bug，见
-  `docs/translation.md`）。
+  `--exempt` 注入；不得把某款游戏的数据写死在脚本里。
 - **提交前自查（mandatory）**：分两部分。
 
   **（1）机器路径/用户名——自动化门禁**（可真正跑到零命中）：
@@ -65,7 +53,7 @@ docs、README、commit message、文件名）都不允许出现下列内容；�
   但**规则文本与测试固件自身就会命中**，所以真正的门禁是上面那个测试。
 
   **（2）游戏名 / 成人词 / 推广词——词表对照**：用本地广告关键词表
-  （每行一个关键词，逻辑位置见 `docs/reference/local-layout.md`）：
+  （每行一个关键词，位置见 `rpgmaker/settings.py`）：
   `rg -n -f <广告关键词表> --glob '!<本地私有表目录>/**' .`。
   词表不存在时按「引擎 + 特征描述」原则人工复核。commit message 同样自查。
 
@@ -110,22 +98,20 @@ powershell.exe -NoProfile -Command \
 
 ## 本地私有数据 — 加载规则（mandatory）
 
-仓库**不存放**任何真实本地数据（词表、密码、字体、每游戏资料）。布局、
-路径解析顺序、字体策略、迁移映射的**唯一权威说明**是
-`docs/reference/local-layout.md`；本节只说**什么时候必须去读**。
+仓库**不存放**任何真实本地数据（词表、密码、字体、每游戏资料）。位置和读取顺序由 `rpgmaker/settings.py` 定义，字体规则见 `rpgmaker/fontpolicy.py`。
 
 - **翻译开始前**：检查当前游戏的 workspace 是否有 `glossary.json`（注入
   词表）、`tone.md`（语气；`tools/gen_translation_shards.py` 把它注入块
   上下文，缺失时用中性默认）、`notes.md`（控制码/豁免清单等坑）；没有
   workspace 则以 work 目录的 `glossary.json` 为准，收尾时再同步。旧布局
-  （每游戏子目录）见 `docs/reference/local-layout.md` §7 的迁移映射。
+  （每游戏子目录）的兼容路径见 `rpgmaker/settings.py`。
 - **解压密码保护的压缩包时**：从本地密码表按来源特征匹配（执行时按引用
   读取，绝不写进构建产物或日志）。
 - **打包/压缩前清理广告文件时**：对照本地广告关键词表（关键词与文件名
   清单）扫描并删除（仓库文档里不写具体文件名，以本地表为准）。
 - **确定翻译风格时**：本地通用名词表（成人词表）是通用名词词表的唯一
   权威来源（**不在仓库里写死名称**——写死过的文件名曾与实际本地文件名
-  不一致，见 `docs/translation.md`）。
+  不一致）。
 - **依赖本地数据却找不到时**：任何 mandatory 步骤若只有 gitignored 数据
   才能完成（词表/字体/env 配置），**必须 WARN 并说明缺失了什么**，
   不得静默降级成空操作。
@@ -174,9 +160,7 @@ commit**；提交前自查扫描时排除本地私有目录（见公开仓库卫
      `UP031`/`UP030`/`SIM115` 选中但 ignore、由计数预算
      `[tool.gametranslation.lint-burndown]` 封顶，只能降不能升；
      `tests/test_lint.py` 会把同一命令当门禁跑，未装 ruff 则跳过）；
-  4. 文档一致性：`python -m tools.check_docs`（目录树与仓库文件同步，
-     解析 `docs/reference/repo-layout.md`）、文档语言为中文；
-  5. **单元测试（mandatory）**：新功能/新工具必须写单元测试（`tests/`，
+  4. **单元测试（mandatory）**：新功能/新工具必须写单元测试（`tests/`，
      pytest），**正例、反例、边缘情况都要覆盖**，提交前全绿——venv 解释器
      按平台取 `.venv/bin/python`（POSIX）或 `.venv\Scripts\python.exe`
      （Windows），命令形如 `<venv-python> -m pytest tests/`（默认 `-n auto`
@@ -184,11 +168,15 @@ commit**；提交前自查扫描时排除本地私有目录（见公开仓库卫
 - **既有约定单点维护（改代码前先看这两处）**：命令行与日志有唯一入口——
   新工具直接照 `rpgmaker/cliutil.py` 文档串的模板写（Typer +
   `main(argv=None)`，不再用 argparse），日志只用 `rpgmaker/logsetup.py`；
-  外部程序/包也各有唯一入口（见 `docs/reference/tooling.md` 的「唯一入口」
-  表），不得另起一套。
+  外部程序的解析见 `rpgmaker/tool_registry.py`，文件读写统一用 `rpgmaker/io_boundary.py`。
 - 提交信息主要用中文描述，但不得含游戏名与敏感词。含 CJK 的提交信息用
   `git commit -F <file>` 传入（PowerShell heredoc 会把 CJK 变成 `?`，且
   `<` 是保留字）。
+
+## 开发环境（mandatory）
+
+- Python 用 `uv sync --locked --all-extras` 安装依赖，通过 `uv run` 运行命令。
+- 需要 Node.js 做开发验证时，用 `fnm exec --using=<版本> node`。运行时依赖以 `pyproject.toml` 为准。
 
 ## Python 导入规则（mandatory）
 
@@ -208,7 +196,7 @@ commit**；提交前自查扫描时排除本地私有目录（见公开仓库卫
   **游戏内原生语言内容**——日文原文、假名/日文正则、日文样例（如
   `\N[1]`、`名前`、`<SG説明`），以及注入给翻译 agent 的 prompt/词表
   内容。**禁止中文注释**。
-- **文档文件**（README、`docs/*.md`、AGENTS.md）：一律**中文**。
+- **文档文件**（README、AGENTS.md、CHANGELOG.md）：一律**中文**。
 - 提交信息主要用中文描述（不含游戏名与敏感词）。
 
 ## 调试与日志（mandatory）
@@ -244,8 +232,7 @@ commit**；提交前自查扫描时排除本地私有目录（见公开仓库卫
 - **二进制格式工具的输出必须可自检**：解包/解码类工具结束后打印汇总
   （文件数、字节数），解出可疑数据（全零、随机高熵）时 WARN 提示
   key/偏移可能错误。
-- **失败模式记录进 `docs/experience-*.md`**（索引见 `docs/experience.md`）：
-  格式坑、错误 key 的特征（解出的头部不是可读字节流等）要留档。
+- **在实现旁说明失败模式**：注释记录容易误判的格式和症状，用回归测试固定已验证的行为。
 
 ## 任务执行规则（mandatory）
 
@@ -278,24 +265,22 @@ commit**；提交前自查扫描时排除本地私有目录（见公开仓库卫
 推进、截图一体），**不自建窗口截图工具**；无法自动化的步骤停下请 owner
 手动完成并告知。截图后**用当前环境可用的视觉路径读图**（能读图就把 PNG
 交给读文件工具；若运行所用的模型确实没有视觉能力，就把路径交给 owner 并
-明确说明「未能完成视觉验证」，绝不得假装完成）。互操作失效（`WSLInterop`
-binfmt 条目缺失）时的修复命令写在 `docs/screenshot.md`。
+明确说明「未能完成视觉验证」，绝不得假装完成）。互操作失效时，先检查 `WSLInterop` 的 binfmt 条目。
 
 ## 引擎与能力（mandatory）
 
 每个引擎只做「解包 → 文本提取 → 翻译 → 写回 → 打包交付」，**不做任何
-运行时转换或移植**。能力与引擎的对应关系以
-`docs/reference/support-matrix.md` 为准，代码侧唯一权威是
-`rpgmaker/inventory.py` 的 `ENGINE_CAPABILITIES`（未知引擎**失效关闭**：
+运行时转换或移植**。引擎能力以
+`rpgmaker/inventory.py` 的 `ENGINE_CAPABILITIES` 为准（未知引擎**失效关闭**：
 不静默继续）。
 
-| 引擎 | 做什么 | 入口 | 做法见 |
-|---|---|---|---|
-| RPG Maker MZ/MV（HTML5） | 还原 launcher 打包的数据库、翻译与烘焙、清理、打包交付 | `pipeline.py`（`gt`） | `docs/workflow.md`、`docs/translation.md` |
-| TyranoScript / TyranoBuilder | 解包 `app.asar`、`.ks` 翻译与写回、引擎 UI 本地化、清理、打包交付 | `tyrano/pipeline.py`（`gt-tyrano`） | `docs/tyrano.md` |
-| KiriKiri2 / krkrz / KAG3 | 解包 `data.xp3`、`.ks` 翻译、写回 `patch.xp3`、字体合并 | `kirikiri/` | `docs/kirikiri.md` |
-| Wolf RPG（ウディタ） | 解包、文本提取、翻译与补丁写回 | `wolfrpg/dxarchive.py` | `docs/wolfrpg.md` |
-| Unity（Mono / IL2CPP / RM Unite） | 文本提取、翻译、运行时 hook 注入 | `unity/rmunite/` | `docs/engines/unity.md` |
+| 引擎 | 做什么 | 入口 |
+|---|---|---|
+| RPG Maker MZ/MV（HTML5） | 还原 launcher 打包的数据库、翻译与烘焙、清理、打包交付 | `pipeline.py`（`gt`） |
+| TyranoScript / TyranoBuilder | 解包 `app.asar`、`.ks` 翻译与写回、引擎 UI 本地化、清理、打包交付 | `tyrano/pipeline.py`（`gt-tyrano`） |
+| KiriKiri2 / krkrz / KAG3 | 解包 `data.xp3`、`.ks` 翻译、写回 `patch.xp3`、字体合并 | `kirikiri/` |
+| Wolf RPG（ウディタ） | 解包、文本提取、翻译与补丁写回 | `wolfrpg/dxarchive.py` |
+| Unity（Mono / IL2CPP / RM Unite） | 文本提取、翻译、运行时 hook 注入 | `unity/rmunite/` |
 
 **引擎边界（mandatory）**：Unity 与 Wolf RPG **绝不**跑 RPG Maker 专用
 命令（`unpack-data`/`clean`/`compress`/`deliver` 对它们无意义且会破坏
@@ -305,7 +290,7 @@ binfmt 条目缺失）时的修复命令写在 `docs/screenshot.md`。
 注入给游戏的补丁内容由 owner 逐款给出。
 
 **游戏特定特征**（引擎 + 特征案例、体量、坑）一律记录在**本地
-workspace**（`notes.md`，见 `docs/reference/local-layout.md`），**不写进
+workspace**（`notes.md`），**不写进
 仓库文档**；仓库只留引擎级通用知识，以「引擎 + 特征描述」形式。
 
 ## 路径与工具规则（mandatory）
@@ -328,13 +313,12 @@ workspace**（`notes.md`，见 `docs/reference/local-layout.md`），**不写进
   → PATH**。新增/修改一个程序只改 `TOOLS` 一条，**不得**在别的模块里新写
   `shutil.which` / 自己的查找函数，也**不得**把机器路径写进代码或文档
   （探测代替硬编码）。每条条目必须带 `ToolStatus` 分级，并有至少一个真实
-  调用者（无调用者的解析器 = 死代码，教训见 `docs/experience-misc.md`）。
+  调用者。
   `pipeline.py doctor`（`--json` 机器可读）打印每个程序实际解析到的路径与
   来源，并按分级把缺失分成 `[MISS]`（`required`）与 `[WARN]`（其余）；
   排查「工具找不到」先跑它，不要搜盘。
 - **功能优先用现成包，不自己造轮子（mandatory）**：同一个能力只能有一个
-  封装层，且优先用维护中的包而非手写。**「能力 → 唯一入口 → 使用的包」
-  对照表见 `docs/reference/tooling.md`**。新代码**不得**再自己拼外部程序
+  封装层，且优先用维护中的包而非手写。新代码**不得**再自己拼外部程序
   的 argv、解它们的 stdout、或写第二份 `shutil.which`。例外（代码注释里
   写明原因）：**Windows 侧桥接**仍调 Windows `7z.exe` 与 PowerShell（见
   跨系统 CRITICAL 规则）。其余能力都在进程内实现：7z 归档走 `py7zr`，
@@ -376,7 +360,7 @@ workspace**（`notes.md`，见 `docs/reference/local-layout.md`），**不写进
   日文假名统一走项目标准中文字体，避免中文回退系统字体导致字形不统一。
   字体名、各引擎改动点、`required`/`auto`/`preserve` 三种策略与「已有
   翻译默认保留原字体、不得静默替换」的规则见
-  `docs/reference/local-layout.md` §4–5 与本地字体策略表（不入库，缺失时
+  `rpgmaker/fontpolicy.py` 与本地字体策略表（不入库，缺失时
   **按 WARN 报出并跳过**，不得静默当成已应用）；MZ/MV 走
   `translation/bake.py` 标准字体策略，Tyrano 按本地策略表的 Tyrano 改动点
   （font.css @font-face + Config.tjs `;userFace=`）。
@@ -396,7 +380,7 @@ workspace**（`notes.md`，见 `docs/reference/local-layout.md`），**不写进
   完整，bake 本身可能静默跳过整类键——实测 System.json 字段表漂移
   （`element` vs `elements`、缺 `gameTitle`）导致标题/属性名在「100%
   覆盖」下仍是日文。烘焙后必须把译库每个键的 JSON 路径在构建里解析回来
-  逐条比对（见 `docs/experience-translation.md`），不一致当失败处理。
+  逐条比对，不一致当失败处理。
   烘焙后验收继续跑
   `python -m tools.qc_build_kana <构建> --source <日文原版> --work <工作区>`。
 - **名称引用自动检查（TE/namePop）**：`tools/bake_translation.py` 在烘焙
@@ -405,7 +389,7 @@ workspace**（`notes.md`，见 `docs/reference/local-layout.md`），**不写进
 
 ## 翻译流程（v2 — 唯一流程）
 
-**翻译只走 `docs/translation.md` 的 v2：一个翻译执行者（单写者，磁盘状态
+**翻译只走 v2：一个翻译执行者（单写者，磁盘状态
 为权威）+ 文件信箱 + 五道硬门禁。不按 chunk 并行分发、不派发多个翻译
 agent。**
 
@@ -425,9 +409,7 @@ python -m translation.cli bake  <game_dir> <work_dir>     # 按 id 写回 + 统�
   残留 / 换行数一致 / 待决清零）全绿才能 `bake`；烘焙前自动备份到
   `<work>/backup/`。
 - 统一字体是烘焙的强制步骤（本地字体策略表，见
-  `docs/reference/local-layout.md` §5）。
-- 数据契约（键表/译文库/控制码/写回）见 `docs/translation-data.md`；
-  QC 与故障排除见 `docs/translation-qc.md`。
+  `rpgmaker/fontpolicy.py`）。
 
 **体量协商（mandatory）**：启动翻译前先 `prepare` 量体量（键数 / 总字符
 数），把规模报给 owner 取得**明确授权**（授权逐次，不是常设豁免）；大任务
@@ -448,8 +430,7 @@ python -m translation.cli bake  <game_dir> <work_dir>     # 按 id 写回 + 统�
 
 **v1（切块 → 每块一个 subagent → ja/zh 双文件 → merge）已退役**，其工具
 仅剩非 MZ 引擎（Tyrano / Wolf / KiriKiri）的提取/写回链在用，**不得再用
-于 MZ 翻译**；完整归档见 `docs/archive/translation-v1.md`，失败模式教训
-见 `docs/experience-translation.md`。
+于 MZ 翻译**。
 
 ## 顺序
 

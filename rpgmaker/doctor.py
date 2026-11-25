@@ -16,7 +16,6 @@ toolkit depends on and exits non-zero when something is missing:
                             `environment.json` by default (optional override
                             layer; absent is normal and not a failure).  The
                             location comes from rpgmaker.settings.PRIVATE_PATHS
-                            - see docs/reference/local-layout.md
   * deliverable folders     games / archives / temp (probed when unset,
                             created on demand)
   * workspace + private data the per-game work root and each logical local
@@ -155,8 +154,7 @@ def _private_layout_checks():
             ok, note = True, "(absent) not provisioned"
         checks.append(Check(
             "private:{}".format(row["key"]), ok, "{} - {}".format(row["path"], note),
-            "a gitignored local resource; state the logical location, never "
-            "a literal path (see docs/reference/local-layout.md)", source))
+            "gitignored resource resolved by rpgmaker.settings", source))
     return checks
 
 
@@ -168,8 +166,7 @@ def _workspace_check():
     source = "env" if os.environ.get("GT_WORK_ROOT") else "default"
     return Check(
         "workspace root", True, str(root),
-        "per-game work lives here; override with --work-dir or GT_WORK_ROOT "
-        "(see docs/reference/local-layout.md)", source)
+        "per-game work lives here; override with --work-dir or GT_WORK_ROOT", source)
 
 
 def collect_checks():

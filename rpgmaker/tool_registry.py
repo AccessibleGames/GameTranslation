@@ -147,7 +147,7 @@ TOOLS = (
         key="git", env="GIT", exe=("git", "git.exe"),
         probe=("Git/cmd/git.exe", "Git/bin/git.exe",
                "Programs/Git/cmd/git.exe"),
-        status=ToolStatus.DEV_ONLY,
+        status=ToolStatus.TEST_ONLY,
         purpose="repo versioning / hygiene (development workflow only)",
         hint="only needed for the development workflow, not for translation",
     ),

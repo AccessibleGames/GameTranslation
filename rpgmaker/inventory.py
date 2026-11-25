@@ -1,43 +1,7 @@
-"""Machine-readable inventory of every production module in this repo.
+"""Engine capabilities, module lifecycle, wheel contents and CLI entry points.
 
-Why this exists
----------------
-The repository accumulated three environments' worth of one-off scripts, and
-seven packages that grew engine by engine.  Before that can be reorganised,
-every module needs an explicit status: is it live, is it a deliberate manual
-recovery tool, was it replaced, or is it dead?  Deciding that by reading a
-filename is exactly how dead code survives, so the answer lives here and
-`tests/test_inventory.py` fails when a module is missing from this table.
-
-The table is deliberately plain data with no imports: `rpgmaker/` (core) must
-not import an engine, and a record naming `kirikiri.xp3tool` is a string, not
-an import edge.
-
-Fields
-------
-module      Dotted module path, or a repo-relative `.py` path for files that
-            are not importable as a module (root scripts).
-status      One of STATUSES below.
-kind        Coarse role, used for reporting and for the CLI smoke matrix.
-engines     Engine families this module serves, from ENGINES.  `()` for
-            engine-agnostic infrastructure.
-wheel       Must the module be present in the installed wheel for the public
-            entry points (`gt`, `gt-tyrano`, `python -m translation.cli`) to
-            work?  True only when something outside the module's own package
-            imports it or the package is a public entry point.
-entry       Public CLI entry, if any: ``"argv shape"`` as a human-readable
-            string, or "" when the module has no CLI.
-replacement Set for superseded modules: what replaced them.
-
-Rules
------
-* A module with no importer outside its own package and no live CLI use is
-  `DEAD` - unless the docs tell an operator to run it, in which case it is
-  `MAINTENANCE`.
-* `MAINTENANCE` is a legitimate, permanent status: post-incident data repair
-  cannot always be automated, and deleting the tool means the next incident is
-  unsolvable.
-* Adding a production module without adding it here fails the test suite.
+The inventory stores module paths as strings so core can list engine tools
+without importing engine packages or triggering their optional dependencies.
 """
 
 from typing import NamedTuple
@@ -243,8 +207,6 @@ _TOOLS_MAINTENANCE = [
            ("wolfrpg",), False, "python -m tools.build_wolf_translation"),
     Module("tools.check_all", "active", "maintenance", (), False,
            "python -m tools.check_all"),
-    Module("tools.check_docs", "active", "maintenance", (), False,
-           "python -m tools.check_docs"),
     Module("tools.check_coverage", "active", "maintenance", (), False,
            "python -m tools.check_coverage coverage.json"),
     Module("tools.mypy_check", "active", "maintenance", (), False,

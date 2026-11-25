@@ -129,7 +129,7 @@ BUILTIN_MARKS = frozenset({
 # every skip that guarded a codec, a Node binary or an engine source went with
 # them.  What is left is the dev-tool / host-filesystem / incomplete-checkout
 # guards plus two optional imports.
-SKIP_BUDGET = 11
+SKIP_BUDGET = 10
 
 # This gate cannot scan itself (its own string literals look like skip sites).
 SCAN_EXEMPT = frozenset({"tests/test_test_layers.py"})
