@@ -122,7 +122,7 @@ def _skip_ws(text, i):
 def _parse_object(text, i):
     """Parse `{...}` starting at the `{`; returns `(obj, next_index)`."""
     i += 1
-    obj = {}
+    obj: dict[str, object] = {}
     while True:
         i = _skip_ws(text, i)
         if i >= len(text):
@@ -149,7 +149,7 @@ def _parse_object(text, i):
 def _parse_array(text, i):
     """Parse `[...]` starting at the `[`; returns `(arr, next_index)`."""
     i += 1
-    arr = []
+    arr: list[object] = []
     while True:
         i = _skip_ws(text, i)
         if i >= len(text):
@@ -212,6 +212,8 @@ def parse_plugins_js(text):
     except ValueError:
         val, _ = _parse_value(text, 0)
         plugins = val
+    if not isinstance(plugins, list):
+        raise ValueError("plugins.js must contain an array")
     return [p for p in plugins if isinstance(p, dict)]
 
 

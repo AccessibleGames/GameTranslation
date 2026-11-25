@@ -89,6 +89,7 @@ class TestCollections:
                   + fixnum(2) + symbol("@hp") + b"i" + fixnum(100)
                   + symbol("@mp") + b"i" + fixnum(50))
         obj = load(stream)
+        assert isinstance(obj, dict)
         assert obj["@hp"] == 100
         assert obj["__class__"] == "Game_Actor"
 
@@ -105,10 +106,12 @@ class TestCollections:
 
     def test_umarshal(self):
         obj = load(b"U" + symbol("Marshal::Thing") + b"[" + fixnum(0))
+        assert isinstance(obj, dict)
         assert obj["__umarshal__"] == "Marshal::Thing"
 
     def test_regexp(self):
         obj = load(b"/" + fixnum(4) + b"ab+c" + fixnum(0))
+        assert isinstance(obj, dict)
         assert obj["__regexp__"] == "ab+c"
 
     def test_class_module(self):

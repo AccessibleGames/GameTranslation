@@ -139,8 +139,8 @@ def check_value(old, new, key):
     if old.count("\\n") != new.count("\\n"):
         problems.append("newline count %d -> %d"
                         % (old.count("\\n"), new.count("\\n")))
-    if KANA_RE.search(new):
-        problems.append(f"kana left: {KANA_RE.search(new).group(0)}")
+    if match := KANA_RE.search(new):
+        problems.append(f"kana left: {match.group(0)}")
     return "; ".join(problems) if problems else None
 
 
@@ -229,7 +229,7 @@ def cmd_dump(game: Annotated[str, cliutil.Argument(
 
 def cmd_apply(game: Annotated[str, cliutil.Argument(
         help="build folder or a path to tyrano/lang.js")],
-        mapping: Annotated[str, cliutil.Option(
+        mapping: Annotated[str | None, cliutil.Option(
             "--map", help="JSON {key: translation} to apply")] = None,
         block: Annotated[str, cliutil.Option(
             "--block", help="lang.js block to rewrite")] = DEFAULT_BLOCK,

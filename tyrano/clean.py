@@ -61,7 +61,7 @@ def _remove(path, what, stats):
 
 def cleanup_all(web_root, dry_run=False):
     """Remove residues; returns the list of removed paths (relative)."""
-    removed = []
+    removed: list[str] = []
     # AGENTS.md CRITICAL: this deletes files with plain Python I/O, so the
     # folder must belong to this processor's side.  `--dry-run` is exempt
     # because it only stats and prints - refusing to *report* what a

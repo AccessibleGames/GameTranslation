@@ -33,7 +33,7 @@ MAGIC = b"XP3\r\n \n\x1a\x8b\x67\x01"
 # Byte-level builders (mirror xp3pack.build_index + pack layout)
 # ---------------------------------------------------------------------------
 
-def build_file_chunk(name, segments, adler=0):
+def build_file_chunk(name, segments, adler: int | None =0):
     """One File sub-chunk. segments = [(start, org, arc, compressed)].
 
     adler is written into the 'adlr' sub-chunk; pass None to build the

@@ -193,7 +193,8 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
         src = json.load(open(src_path, encoding="utf-8"))
         p = os.path.join(chunks_dir, path)
         fixed = 0
-        for _attempt in range(3):
+        out = None
+        for attempt in range(3):
             text, fixed = repair_file(p)
             if fixed:
                 open(p, "w", encoding="utf-8").write(text)
@@ -201,13 +202,12 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
                 out = json.loads(text)
                 break
             except json.JSONDecodeError as e:
-                if fixed == 0:
+                if fixed == 0 or attempt == 2:
                     report.append(f"{path}: REPAIR UNABLE ({str(e)[:60]})")
-                    out = None
                     break
         if out is None:
             continue
-        patched = []
+        patched: list[str] = []
         out = patch_altered_keys(src, out, patched)
         # The rename report used to be thrown away here (a plain rebinding of
         # `issues`), so a repaired chunk looked clean in the report.

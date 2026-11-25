@@ -388,7 +388,7 @@ class TestAutoWorkersPhysicalBase:
     per-kind cap that silently under-uses a bigger machine)."""
 
     @staticmethod
-    def _pin(monkeypatch, cores, avail_gib=64, hdd=False):
+    def _pin(monkeypatch, cores, avail_gib: float = 64, hdd=False):
         monkeypatch.setattr(runtime, "physical_cpu_count", lambda: cores)
         monkeypatch.setattr(runtime, "memory_available_bytes",
                             lambda: avail_gib * 1024 ** 3)

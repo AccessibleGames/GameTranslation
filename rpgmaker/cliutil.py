@@ -58,6 +58,7 @@ for a failure raised deep inside a helper.
 import logging
 import os
 import sys
+from types import FrameType
 from typing import Annotated
 
 import typer
@@ -283,7 +284,7 @@ def _error_code(exc):
 
 def _caller_doc():
     """Docstring of the module that called app() (its __doc__ is the help)."""
-    frame = sys._getframe(1)
+    frame: FrameType | None = sys._getframe(1)
     while frame is not None:
         module = frame.f_globals.get("__name__", "")
         if not module.startswith("rpgmaker"):

@@ -28,8 +28,9 @@ def make_game(root, maps=None, common_events=None, actors=None, items=None,
     data = os.path.join(root, "data")
     os.makedirs(data)
     os.makedirs(os.path.join(root, "js"))
+    maps = maps or {}
     mi = []
-    for i, fname in enumerate(sorted(maps or {}), start=1):
+    for i, fname in enumerate(sorted(maps), start=1):
         mi.append({"id": i, "name": maps[fname][0] or ("MAP%03d" % i),
                    "expanded": True})
         write_json(os.path.join(data, fname), {

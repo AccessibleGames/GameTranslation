@@ -149,9 +149,11 @@ def cmd(root: Annotated[str, cliutil.Argument(
     # to see (it is either a collision or a wrongly-classified name).
     for path, fixed in found:
         log.debug("candidate %s -> %s", os.path.relpath(path, root), fixed)
-    summary = apply_renames(root, found, dry_run=not apply_)
-    summary["root"] = root
-    summary["dry_run"] = not apply_
+    summary = {
+        **apply_renames(root, found, dry_run=not apply_),
+        "root": root,
+        "dry_run": not apply_,
+    }
     if json_out:
         with open(json_out, "w", encoding="utf-8") as fh:
             json.dump(summary, fh, ensure_ascii=False, indent=2)

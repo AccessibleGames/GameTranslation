@@ -146,7 +146,7 @@ def test_scan_js_and_inventory(game):
     assert any("pixel offset" in doc for doc in found["PX"]["docs"])
     merged = codes.inventory(game, {"\\px[200]": 3, "\\c[1]": 1})
     assert merged["PX"]["count"] == 3
-    assert merged["PX"]["documented"] is True
+    assert merged["PX"].get("documented") is True
     path = codes.write_markdown(str(os.path.join(game, "codes.md")), merged)
     text = open(path, encoding="utf-8").read()
     assert "`\\PX`" in text and "`\\C`" in text
@@ -551,6 +551,7 @@ def _neutral(entry, text):
             out.append(codes.KANA_RE.sub("\u597d", piece))
         elif codes.has_text_parameter(piece):
             parameter = codes.parameter_of(piece)
+            assert parameter is not None
             out.append(piece.replace(parameter,
                                      codes.KANA_RE.sub("\u597d", parameter)))
         else:
@@ -1011,6 +1012,23 @@ def test_status_and_pending_gate_agree(work, game):
     latest, entries, errors = rawlib.read_pending(work)
     assert (entries, errors) == (3, [])
     assert rawlib.pending_open(latest) == list(latest.values())[-1:] != []
+
+
+def test_pending_rejects_non_object_json_rows(work, game):
+    mvkeys.extract(game, work)
+    _fill_library(work, _neutral)
+    path = os.path.join(work, "pending.jsonl")
+    rawlib.append_jsonl(path, [])
+    rawlib.append_jsonl(path, {"id": "open", "why": "fixture"})
+
+    latest, count, errors = rawlib.read_pending(work)
+
+    assert list(latest) == ["open"]
+    assert count == 1
+    assert errors == [(1, "expected a JSON object")]
+    assert cli.main(["decide", work, "--all-open", "--status", "resolved",
+                     "--reason", "fixture"]) == 1
+    assert rawlib.read_pending(work) == (latest, count, errors)
 
 
 def test_pending_status_summary_reports_parse_errors(work, game):

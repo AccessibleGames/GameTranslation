@@ -32,6 +32,7 @@ def git(cwd, *args, check=True):
     # UTF-8 (paths, the hook's message), so `text=True` alone dies with
     # UnicodeDecodeError and leaves stdout None - the same locale trap that
     # tests/test_text_io_portability.py guards elsewhere.
+    assert GIT is not None
     proc = subprocess.run([GIT, "-C", str(cwd), *args], capture_output=True,
                           text=True, encoding="utf-8", errors="replace")
     if check and proc.returncode != 0:

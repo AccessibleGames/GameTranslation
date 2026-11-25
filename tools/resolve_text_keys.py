@@ -128,7 +128,9 @@ def read_term_dict(path):
     a term row carries for that id.
     """
     runtime = prefill.load_runtime_dict(path)
-    pairs, by_id, ja_by_id = {}, {}, {}
+    pairs: dict[str, str] = {}
+    by_id: dict[str, str] = {}
+    ja_by_id: dict[str, str] = {}
     for key, value in runtime.items():
         if "," not in key:
             pairs.setdefault(key.strip(), value.strip())
@@ -150,8 +152,8 @@ class Resolver:
 
     def __init__(self, tables=None, lang=DEFAULT_LANG):
         self.lang = lang
-        self.zh = {}
-        self.ja = {}
+        self.zh: dict[str, str] = {}
+        self.ja: dict[str, str] = {}
         self.dict_zh = {}
         self.dict_ja = {}
         self.pairs = {}
@@ -250,7 +252,7 @@ def _set_param(command, position, value):
         params = command.get("parameters")
         if isinstance(params, list) and position < len(params):
             params[position] = value
-    elif isinstance(command, (list, tuple)) and len(command) >= 3 + position:
+    elif isinstance(command, list) and len(command) >= 3 + position:
         command[2 + position] = value
 
 
@@ -275,6 +277,8 @@ def rewrite_document(document, file_name, resolver, stats, classify=True):
                 path = f"{trail}.{key}" if trail else key
                 if key == "list" and isinstance(item, list):
                     for index, command in enumerate(item):
+                        if isinstance(command, tuple):
+                            command = item[index] = list(command)
                         command_code = mvkeys.command_code(command)
                         for position in range(len(_params_of(command))):
                             value = _params_of(command)[position]
@@ -298,7 +302,7 @@ def json_layers(value):
     compares the profile before and after and warns on a regression instead of
     shipping a parameter the game dies on at boot.
     """
-    profile = collections.Counter()
+    profile: collections.Counter[int] = collections.Counter()
 
     def walk(node, level):
         if isinstance(node, str):

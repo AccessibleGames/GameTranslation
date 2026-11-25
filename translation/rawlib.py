@@ -43,7 +43,7 @@ def read_library(path):
     # Iterate on LF only. CR at the end of a line belongs to a CRLF frame.
     values = OrderedDict()
     current = None
-    chunks = []
+    chunks: list[str] = []
     with open(path, encoding="utf-8", errors="replace",
                  newline="\n") as handle:
         for number, line in enumerate(handle, 1):
@@ -91,7 +91,8 @@ read_jsonl = io_boundary.read_jsonl
 
 def read_jsonl_report(path):
     """Return valid records and (line number, error) pairs for damaged rows."""
-    records, errors = [], []
+    records: list[dict] = []
+    errors: list[tuple[int, str]] = []
     if not os.path.isfile(path):
         return records, errors
     with open(path, encoding="utf-8-sig", errors="replace") as handle:
@@ -100,9 +101,14 @@ def read_jsonl_report(path):
             if not line:
                 continue
             try:
-                records.append(json.loads(line))
+                record = json.loads(line)
             except ValueError as error:
                 errors.append((number, str(error)))
+            else:
+                if isinstance(record, dict):
+                    records.append(record)
+                else:
+                    errors.append((number, "expected a JSON object"))
     return records, errors
 
 
@@ -200,7 +206,7 @@ def to_json(work_dir, out_path=None):
     keys = mvkeys.load_keys(work_dir)
     values = read_library(os.path.join(work_dir, LIBRARY_NAME))
     by_id = OrderedDict()
-    by_text = OrderedDict()
+    by_text: OrderedDict[str, str] = OrderedDict()
     conflicts = []
     for entry in keys:
         text = values.get(entry["id"])
@@ -606,7 +612,7 @@ def _gate_pending(work_dir):
 
 def _gate_lines(keys, values):
     """Every value keeps its source's explicit line breaks (no silent loss)."""
-    mismatched = []
+    mismatched: list[dict[str, str]] = []
     for entry in keys:
         text = values.get(entry["id"])
         if not text:

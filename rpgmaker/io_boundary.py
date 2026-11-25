@@ -10,6 +10,9 @@ import json
 import os
 import shutil
 import tempfile
+from collections.abc import Iterator
+from contextlib import AbstractContextManager
+from typing import BinaryIO, TextIO, overload
 
 __all__ = [
     "BOM",
@@ -29,7 +32,10 @@ __all__ = [
 BOM = "\ufeff"
 
 
-def _prepare_target(path: str, ensure_parent: bool) -> str:
+type FilePath = str | os.PathLike[str]
+
+
+def _prepare_target(path: FilePath, ensure_parent: bool) -> str:
     text = os.fspath(path)
     parent = os.path.dirname(text)
     if parent and ensure_parent:
@@ -37,19 +43,33 @@ def _prepare_target(path: str, ensure_parent: bool) -> str:
     return text
 
 
-@contextlib.contextmanager
-def open_atomic(path, *, encoding: str | None = None, ensure_parent: bool = True,
-                durable: bool = False):
+@overload
+def open_atomic(path: FilePath, *, encoding: None = None, ensure_parent: bool = True,
+                durable: bool = False) -> AbstractContextManager[BinaryIO]: ...
+
+
+@overload
+def open_atomic(path: FilePath, *, encoding: str, ensure_parent: bool = True,
+                durable: bool = False) -> AbstractContextManager[TextIO]: ...
+
+
+def open_atomic(path: FilePath, *, encoding: str | None = None, ensure_parent: bool = True,
+                durable: bool = False) -> AbstractContextManager[BinaryIO | TextIO]:
     """Yield a binary stream, or an LF text stream when encoding is given."""
+    return _atomic_stream(path, encoding, ensure_parent, durable)
+
+
+@contextlib.contextmanager
+def _atomic_stream(path: FilePath, encoding: str | None, ensure_parent: bool,
+                   durable: bool) -> Iterator[BinaryIO | TextIO]:
     target = _prepare_target(path, ensure_parent)
     directory = os.path.dirname(target) or "."
     fd, temporary = tempfile.mkstemp(dir=directory, prefix=".gt-tmp-")
     try:
         try:
-            mode = "wb" if encoding is None else "w"
-            newline = None if encoding is None else "\n"
-            with os.fdopen(fd, mode, encoding=encoding, newline=newline,
-                           closefd=False) as stream:
+            handle = (open(fd, "wb", closefd=False) if encoding is None
+                      else open(fd, "w", encoding=encoding, newline="\n", closefd=False))
+            with handle as stream:
                 yield stream
                 if durable:
                     stream.flush()
@@ -65,7 +85,7 @@ def open_atomic(path, *, encoding: str | None = None, ensure_parent: bool = True
             os.unlink(temporary)
 
 
-def load_text(path: str, encoding: str = "utf-8-sig") -> str:
+def load_text(path: FilePath, encoding: str = "utf-8-sig") -> str:
     """Read a UTF-8 text file, tolerating a BOM (`utf-8-sig` strips it).
 
     `utf-8-sig` is a no-op on a file without one, so this is the safe default
@@ -75,7 +95,7 @@ def load_text(path: str, encoding: str = "utf-8-sig") -> str:
         return handle.read()
 
 
-def load_json(path: str):
+def load_json(path: FilePath):
     """Load JSON, tolerating a UTF-8 BOM that Windows editors add.
 
     Raises `OSError` if unreadable and `json.JSONDecodeError` if malformed;

@@ -143,7 +143,7 @@ def cmd_compress(
 @app.command("deliver")
 def cmd_deliver(
     game: str = typer.Argument(..., help="finished folder (usually in temp)"),
-    name: str = typer.Option(None, help="delivered name (archive + games-dir folder); "
+    name: str | None = typer.Option(None, help="delivered name (archive + games-dir folder); "
                                       "defaults to the folder's basename"),
     level: int = typer.Option(15, help="zstd compression level"),
 ):
@@ -170,9 +170,9 @@ def cmd_tyrano_clean(
 @tyrano.command("localize-ui")
 def cmd_tyrano_localize_ui(
     out: str = typer.Argument(..., help="game folder"),
-    mapping: str = typer.Option(None, "--map", help="JSON {key: translation} "
+    mapping: str | None = typer.Option(None, "--map", help="JSON {key: translation} "
                                                   "for tyrano/lang.js"),
-    dump: str = typer.Option(None, "--dump", help="write the engine UI "
+    dump: str | None = typer.Option(None, "--dump", help="write the engine UI "
                                                     "strings as JSON"),
     dry_run: bool = typer.Option(False, "--dry-run", help="report only"),
 ):

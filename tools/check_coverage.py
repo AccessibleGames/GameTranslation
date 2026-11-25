@@ -127,7 +127,7 @@ def _floor(value):
 def measure(report):
     """Turn a coverage JSON report into {areas, modules, total} percentages."""
     files = report.get("files") or {}
-    areas = {}
+    areas: dict[str, list[int]] = {}
     modules = {}
     for path, entry in files.items():
         rel = _normalise(path)

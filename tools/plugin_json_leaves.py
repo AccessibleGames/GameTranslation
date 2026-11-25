@@ -227,7 +227,7 @@ def iter_string_leaves(param):
 
 def collect_leaves_in(o):
     """Walk a decoded structure, collecting (path, value) kana leaves."""
-    found = []
+    found: list[tuple[list[str | int], str]] = []
     walk(o, [], found)
     return found
 
@@ -252,7 +252,7 @@ def collect_blob_leaves(blob, exempt, out_leaves, warns, plugin=None,
                         param=None):
     """Collect display leaves of one blob into out_leaves; returns the
     number of leaves extracted (new or existing)."""
-    found = []
+    found: list[tuple[list[str | int], str]] = []
     walk(blob, [], found)
     n = 0
     for path, value in found:
@@ -299,8 +299,10 @@ def cmd_extract(game_dir: Annotated[str, cliutil.Argument(
                 encoding="utf-8").read()
     plugins = plugins_io.parse_plugins_js(text)
 
-    leaves, flat, blobs = {}, [], {}
-    warns = []
+    leaves: dict[str, list[dict]] = {}
+    flat = []
+    blobs = {}
+    warns: list[str] = []
     for p in plugins:
         name = p.get("name")
         params = p.get("parameters")
@@ -329,7 +331,7 @@ def cmd_extract(game_dir: Annotated[str, cliutil.Argument(
     plain_io.save_json(os.path.join(out, "plugin_flat.json"), flat)
     plain_io.save_json(os.path.join(out, "plugin_blobs.json"), blobs)
 
-    total = sum(len(v) for v in leaves)
+    total = sum(map(len, leaves))
     print("blobs: %d | leaves: %d (%d chars) | flat strings: %d"
           % (len(blobs), len(leaves), total, len(flat)))
     for w in warns:
@@ -362,14 +364,14 @@ def cmd_rebuild(game_dir: Annotated[str, cliutil.Argument(
     text = open(os.path.join(game_dir, "js", "plugins.js"),
                 encoding="utf-8").read()
     plugins = plugins_io.parse_plugins_js(text)
-    param_where = {}
+    param_where: dict[str, str] = {}
     for p in plugins:
         for k, v in (p.get("parameters") or {}).items():
             if isinstance(v, str):
                 param_where.setdefault(v, "{} / {}".format(p.get("name"), k))
 
     pairs = {}
-    dead = set()
+    dead: set[str] = set()
     for orig in blobs:
         try:
             decoded = decode_string_json(json.loads(orig))

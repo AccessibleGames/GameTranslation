@@ -82,6 +82,15 @@ def test_parse_path_and_set_by_path_shapes():
     assert bake_mod.set_by_path({}, tokens, "x") is False
 
 
+def test_note_payload_path_can_pass_through_array_command_parameters():
+    data = {"list": [[357, 0, {"note": "<Label:old>"}]]}
+    key = "list[0].parameters[0].note#Label[0]"
+
+    assert bake_mod.set_note_payload(data, key, "new")
+    assert data["list"][0][2]["note"] == "<Label:new>"
+    assert not bake_mod.set_note_payload(data, "list[0].parameters[2].note#Label[0]", "x")
+
+
 def test_parse_path_accepts_non_ascii_and_spaced_names():
     """MZ plugin parameters are often named in Japanese, or hold spaces.
 
@@ -339,6 +348,7 @@ def test_bake_applies_translated_parameters_and_font_changes_together(tmp_path):
     bake_mod.bake(game, work, font_policy="required", font_path=asset)
 
     plugins, _, _ = bake_mod.load_plugin_params(game)
+    assert plugins is not None
     assert plugins[0]["parameters"] == {
         "Label": "Translated label",
         "Font Name CH": "GameFont",

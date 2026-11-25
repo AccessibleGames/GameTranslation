@@ -156,14 +156,7 @@ def verify(out_path, files):
     a hard load failure on the engine side while being invisible to a size
     comparison alone.
     """
-    # Import the sibling module through the package so this works both as
-    # `kirikiri.xp3pack` and as a script; a bare `from xp3tool import ...` only
-    # worked when kirikiri/ itself was on sys.path, which shadowed the repo-root
-    # modules (kirikiri/ has pipeline.py) for everything imported afterwards.
-    try:
-        from kirikiri.xp3tool import entry_size, open_xp3
-    except ImportError:                # run directly: python kirikiri/xp3pack.py
-        from xp3tool import entry_size, open_xp3
+    from kirikiri.xp3tool import entry_size, open_xp3
 
     entries = open_xp3(out_path)
     parsed = {e["name"]: entry_size(e) for e in entries}

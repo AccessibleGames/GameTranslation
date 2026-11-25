@@ -32,8 +32,9 @@ def make_game(root, maps=None, common_events=None, actors=None, items=None,
     data = os.path.join(root, "data")
     os.makedirs(data)
     os.makedirs(os.path.join(root, "js"))
+    maps = maps or {}
     mi = []
-    for i, fname in enumerate(sorted(maps or {}), start=1):
+    for i, fname in enumerate(sorted(maps), start=1):
         mi.append({"id": i, "name": maps[fname][0] or ("MAP%03d" % i),
                    "expanded": True})
         write_json(os.path.join(data, fname), {
@@ -629,7 +630,8 @@ class TestMainCoverageGate:
         D = json.load(open(trs, encoding="utf-8"))
         bake.STATS.update(hit=0, miss=0)
         bake.translate_data(root, D, write=False)
-        assert bake.coverage() < 0.5
+        coverage = bake.coverage()
+        assert coverage is not None and coverage < 0.5
 
     def test_gate_refuses_when_only_non_key_strings_are_translated(
             self, tmp_path, monkeypatch, capsys):

@@ -61,7 +61,7 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
     work = os.path.abspath(work_dir)
     sweeps = load_sweeps(os.path.join(work, sweep)) if sweep else []
 
-    def sweep(v):
+    def apply_sweep(v):
         for a, b in sweeps:
             v = v.replace(a, b)
         return v
@@ -70,20 +70,20 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
     if chunks:
         d = plain_io.load_json(os.path.join(work, chunks))
         for k, v in d.items():
-            merged[k] = sweep(v)
+            merged[k] = apply_sweep(v)
         print("chunks merged: %d keys (from %s)" % (len(merged), chunks))
     else:
         for p in sorted(glob.glob(os.path.join(work, "chunks", "*.translated.json"))):
             d = plain_io.load_json(p)
             for k, v in d.items():
-                merged[k] = sweep(v)
+                merged[k] = apply_sweep(v)
         print("chunks merged: %d keys" % len(merged))
 
     if prefilled:
         pref = plain_io.load_json(os.path.join(work, prefilled))
         pref_swept = 0
         for k, v in pref.items():
-            nv = sweep(v)
+            nv = apply_sweep(v)
             if nv != v:
                 pref_swept += 1
             merged[k] = nv

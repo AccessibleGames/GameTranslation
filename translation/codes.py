@@ -24,6 +24,7 @@ differ per game.  A hard-coded table would silently mis-describe them.
 import os
 import re
 from collections import Counter, defaultdict
+from typing import NotRequired, TypedDict
 
 __all__ = ["CODE_RE", "DISPATCH_RE", "KANA_RE", "KANA_LETTERS_RE", "CJK_RE",
            "TEXT_KEY_RE",
@@ -186,7 +187,8 @@ def scan_js(game_dir):
     codes in the header help block, which is where the author explains the
     parameter meaning).
     """
-    found = defaultdict(lambda: {"sites": [], "docs": []})
+    found: defaultdict[str, dict[str, list[str]]] = defaultdict(
+        lambda: {"sites": [], "docs": []})
     for path in _js_files(game_dir):
         rel = os.path.relpath(path, game_dir).replace(os.sep, "/")
         with open(path, encoding="utf-8", errors="replace") as handle:
@@ -210,6 +212,14 @@ def scan_js(game_dir):
     return dict(found)
 
 
+class _CodeRecord(TypedDict):
+    count: int
+    tokens: Counter[str]
+    sites: NotRequired[list[str]]
+    docs: NotRequired[list[str]]
+    documented: NotRequired[bool]
+
+
 def inventory(game_dir, counts):
     """Merge observed code frequencies with the JS-derived dispatch table.
 
@@ -217,7 +227,7 @@ def inventory(game_dir, counts):
     normalised either way.
     """
     js = scan_js(game_dir)
-    merged = {}
+    merged: dict[str, _CodeRecord] = {}
     for token_or_key, count in (counts or {}).items():
         key = code_key(token_or_key) if token_or_key.startswith("\\") \
             else token_or_key

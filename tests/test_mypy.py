@@ -29,7 +29,7 @@ class TestTheBudgetsComeFromPyproject:
     """One source of truth: the numbers live in pyproject, not in the tool."""
 
     def test_the_error_budget_is_recorded(self):
-        assert mypy_check.error_budget() == 164
+        assert mypy_check.error_budget() == 0
 
     def test_the_strict_tier_is_not_empty(self):
         modules = mypy_check.strict_list()

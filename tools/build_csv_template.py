@@ -59,7 +59,7 @@ def cmd(game_dir: Annotated[str, cliutil.Argument(
     os.makedirs(work_dir, exist_ok=True)
 
     rows = list(csv.reader(io.StringIO(read_csv(csv_path))))
-    bodies = {}
+    bodies: dict[str, str] = {}
     meta = []
     for r in rows:
         if len(r) < 2:

@@ -46,7 +46,7 @@ def tail(proc, limit=OUTPUT_TAIL):
             [-limit:])
 
 
-def run(cmd, *, timeout=DEFAULT_TIMEOUT, check=True, label=None, cwd=None,
+def run(cmd, *, timeout: float | None = DEFAULT_TIMEOUT, check=True, label=None, cwd=None,
         errors="replace"):
     """Run `cmd` (list form) and return the CompletedProcess.
 

@@ -55,7 +55,7 @@ import logging
 import os
 import re
 import sys
-from typing import Annotated
+from typing import Annotated, NotRequired, TypedDict
 
 from rpgmaker import cliutil
 from tools import plugin_json_leaves
@@ -304,6 +304,30 @@ def source_strings(source_dir, file_name):
     return {trail: text for trail, text, _code in walk_document(document)}
 
 
+type _TextFinding = tuple[str, str, str, int | None]
+type _LocatedText = tuple[str, str, str]
+
+
+class _PluginScan(TypedDict):
+    strings: int
+    samples: list[tuple[str, str]]
+    review: NotRequired[list[tuple[str, str]]]
+
+
+class _Findings(TypedDict):
+    unexpected: list[_TextFinding]
+    by_design: list[_TextFinding]
+    allowed: list[_TextFinding]
+    text_keys: list[_TextFinding]
+    source_table: list[_TextFinding]
+    placeholder: list[tuple[str, str, str, str]]
+    identical: list[_LocatedText]
+    name_lookups: list[_LocatedText]
+    unreadable: NotRequired[list[tuple[str, str]]]
+    plugins: NotRequired[_PluginScan]
+    files: int
+    strings: int
+
 def scan(build_dir, source_dir=None, work_dir=None, plugin_scan=True):
     """Scan a baked build; returns the finding structure of :func:`report`."""
     data_dir = os.path.join(build_dir, "data")
@@ -312,7 +336,7 @@ def scan(build_dir, source_dir=None, work_dir=None, plugin_scan=True):
             f"not an MZ/MV build (no data/System.json): {build_dir}")
     allow_list = load_allow_list(work_dir)
     table_texts = load_source_table_texts(build_dir)
-    findings = {"unexpected": [], "by_design": [], "allowed": [],
+    findings: _Findings = {"unexpected": [], "by_design": [], "allowed": [],
                 "placeholder": [], "identical": [], "name_lookups": [],
                 "text_keys": [], "source_table": [],
                 "files": 0, "strings": 0}
@@ -350,9 +374,12 @@ def scan(build_dir, source_dir=None, work_dir=None, plugin_scan=True):
                 findings["source_table"].append((file_name, trail, text, code))
                 continue
             entry = (file_name, trail, text, code)
-            findings["by_design" if bucket == "by-design" else
-                     "allowed" if bucket == "allowed" else
-                     "unexpected"].append(entry)
+            if bucket == "by-design":
+                findings["by_design"].append(entry)
+            elif bucket == "allowed":
+                findings["allowed"].append(entry)
+            else:
+                findings["unexpected"].append(entry)
         if source_dir:
             original = source_strings(source_dir, file_name)
             for trail, text, _code in strings:
@@ -370,7 +397,7 @@ def scan(build_dir, source_dir=None, work_dir=None, plugin_scan=True):
     return findings
 
 
-def scan_plugins(build_dir):
+def scan_plugins(build_dir) -> _PluginScan:
     """Count kana strings inside js/plugins.js parameters (inventory only).
 
     Plugin parameters are excluded from translation by decision on some

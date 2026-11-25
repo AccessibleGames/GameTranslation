@@ -41,7 +41,7 @@ Usage:
 """
 import os
 import re
-from typing import Annotated
+from typing import Annotated, TypedDict
 
 from rpgmaker import cliutil
 from tools import plain_io
@@ -59,8 +59,8 @@ def parse_patch(path):
         content = f.read()
     blocks = []
     in_block = False
-    cur_key = []
-    cur_ctx = []
+    cur_key: list[str] = []
+    cur_ctx: list[str] = []
     for line in content.splitlines():
         if line == BEGIN:
             in_block = True
@@ -124,9 +124,25 @@ def collect(patch_dir, with_danger, with_extra):
     return items
 
 
+class _WolfItem(TypedDict):
+    key: str
+    ctx: list[str]
+
+
+class _WolfMap(TypedDict):
+    id: str
+    items: list[_WolfItem]
+
+
+class _WolfEntry(TypedDict):
+    ctx: list[str]
+    order: int
+    kind: str
+    label: str
+
 def build_structure(items):
     """Group by source file into the scene tree the shards read."""
-    maps = []          # {id, items: [{key, ctx}]}
+    maps: list[_WolfMap] = []
     global_items = []  # non-story files
 
     def append_map(label, key, ctx, kind):
@@ -136,7 +152,7 @@ def build_structure(items):
         else:
             m = re.search(r"BasicData/CommonEvent/([^/]+)\.txt$", label)
             mname = "[CE] " + (m.group(1) if m else label)
-        cur = None
+        cur: _WolfMap | None = None
         for mm in maps:
             if mm["id"] == mname:
                 cur = mm
@@ -188,7 +204,7 @@ def cmd(patch_dir: Annotated[str, cliutil.Argument(
     items = collect(patch_root, not no_danger, not no_extra)
 
     # dedup keys (keep first occurrence / lowest order), skip pure-ASCII
-    seen = {}
+    seen: dict[str, _WolfEntry] = {}
     for key, ctx, order, kind, label in items:
         if key in seen:
             seen[key]["ctx"].extend(ctx)
@@ -205,7 +221,7 @@ def cmd(patch_dir: Annotated[str, cliutil.Argument(
     # Scene windows: neighbouring dialogue lines within the same scene
     # (same map+page+event, or same common event).  Keys keep the order
     # they appeared in the patch (already scene-contiguous per file).
-    scenes = {}  # scene -> ordered unique keys in that scene
+    scenes: dict[str | None, list[str]] = {}
     for k in keys:
         sc = None
         for ctx_line in seen[k]["ctx"]:

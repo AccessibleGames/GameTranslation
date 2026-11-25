@@ -103,8 +103,8 @@ class Collector:
         self.keys = set()
         self.kind_of = {}
         self.context = {}
-        self.count = collections.Counter()
-        self.name_cands = collections.Counter()
+        self.count: collections.Counter[str] = collections.Counter()
+        self.name_cands: collections.Counter[str] = collections.Counter()
 
     def add(self, key, kind, where="", window=None):
         if not key or not JA.search(key):
@@ -249,6 +249,8 @@ def _collect_rvdata2_mapinfos_order(data_dir):
     """`[(order, id, name)]` from MapInfos.rvdata2, sorted by story order."""
     mi_path = os.path.join(data_dir, "MapInfos.rvdata2")
     mi_data = load_rvdata2(mi_path) if os.path.exists(mi_path) else []
+    if not isinstance(mi_data, list):
+        return []
     order = [(x.get("@order", 0), x.get("@id", 0), x.get("@name", ""))
              for x in mi_data or [] if isinstance(x, dict)]
     order.sort(key=lambda t: (t[0], t[1]))
@@ -279,13 +281,13 @@ def _collect_rvdata2_maps(data_dir, map_order, col):
         tree.append(node)
 
     for fname in sorted(os.listdir(data_dir)):
-        if not is_map_file(fname) or fname in seen_maps:
+        match = re.fullmatch(r"Map(\d{3})\.rvdata2", fname)
+        if match is None or fname in seen_maps:
             continue
         data = load_rvdata2(os.path.join(data_dir, fname))
         if not isinstance(data, dict):
             continue
-        m = re.match(r"Map(\d{3})\.rvdata2", fname)
-        node = {"id": int(m.group(1)), "events": []}
+        node = {"id": int(match.group(1)), "events": []}
         node["items"] = build_structure_tree(data, col, fname)
         tree.append(node)
     return tree

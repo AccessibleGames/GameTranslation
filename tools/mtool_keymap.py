@@ -35,7 +35,7 @@ import re
 import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TypedDict
 
 from rpgmaker import cliutil, io_boundary
 from translation.codes import KANA_LETTERS_RE
@@ -197,9 +197,10 @@ def build_keymap(mtool: dict, containers: list[dict]) -> dict:
             node = trie
             cursor = index
             while cursor < size:
-                node = node.get(text[cursor])
-                if node is None:
+                child = node.get(text[cursor])
+                if child is None:
                     break
+                node = child
                 cursor += 1
                 if "\x00" in node:
                     spans[container["container_id"]].append((index, cursor))
@@ -209,14 +210,14 @@ def build_keymap(mtool: dict, containers: list[dict]) -> dict:
     for key in keys:
         compact_keys[WS_RE.sub("", key)].append(key)
 
-    records: dict[str, dict] = {}
+    records: dict[str, _LocatedKey] = {}
     fragments_by_container: dict[int, list[dict]] = defaultdict(list)
     for container_id, found in spans.items():
         for start, end in found:
             text = WS_RE.sub("", containers[container_id]["source"])
             for key in compact_keys[text[start:end]]:
                 starts, ends = bounds[container_id]
-                record = {
+                record: _LocatedKey = {
                     "key": key,
                     "key_id": key_id(key),
                     "container": container_id,
@@ -257,6 +258,21 @@ def build_keymap(mtool: dict, containers: list[dict]) -> dict:
         "fragments_by_container": fragments_by_container,
         "total_keys": len(keys),
     }
+
+
+class _LocatedKey(TypedDict):
+    key: str
+    key_id: str
+    container: int
+    start: int
+    end: int
+    line_aligned: bool
+
+
+class _MergedValue(TypedDict):
+    zh: str
+    sources: list[str]
+    count: int
 
 
 def _unit_of(container: dict, fragments: list[dict], source_zh: str = "") -> dict:
@@ -397,7 +413,7 @@ def skip_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     return 0
 
 
-def _kind_of(record: dict, host: dict) -> str:
+def _kind_of(record: _LocatedKey, host: dict) -> str:
     """How the key sits in its host field.
 
     ``whole-field``: the key *is* the field - the unambiguous display unit,
@@ -679,14 +695,6 @@ def _align_backslash_runs(ja: str, zh: str) -> str:
     """Give the value's control codes the same backslash run as the source.
 
     Wolf stores codes doubled (``\\\\f[30]``); a translator who writes the
-    single-backslash form the *engine* uses produces a correct-looking string
-    that fails the code gate.  Renaming the run (and nothing else) is lossless:
-    the code name, its parameters and the text are untouched.
-    """
-def _align_backslash_runs(ja: str, zh: str) -> str:
-    """Give the value's control codes the same backslash run as the source.
-
-    Wolf stores codes doubled (``\\\\f[30]``); a translator who writes the
     single-backslash form produces a string that reads correctly and still
     fails the code gate.  The tokens are spliced in by **position** (right to
     left) rather than by ``str.replace``: ``\\i[403]`` is a substring of
@@ -878,8 +886,8 @@ def _font_gaps(font_path: Path, values: dict) -> list[str]:
         from fontTools.ttLib import TTFont
     except ImportError:                                    # pragma: no cover
         return ["fontTools is not installed: cannot verify glyph coverage"]
-    font = TTFont(str(font_path), lazy=True)
-    cmap = set(font.getBestCmap())
+    with TTFont(str(font_path), lazy=True) as font:
+        cmap = set(font.getBestCmap() or {})
     offenders: dict[str, list[str]] = defaultdict(list)
     for key, value in values.items():
         for char in value:
@@ -1144,7 +1152,7 @@ def normalize_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
         return cliutil.fail(f"{symbols}: expected a flat object of string -> string")
     stored = _read_jsonl(paths["translated"])
     changed = 0
-    counts = Counter()
+    counts: Counter[str] = Counter()
     for record in stored:
         value = record["zh"]
         fixed = value
@@ -1321,7 +1329,7 @@ def terms_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
         source = keymap.get(record["key_id"], {}).get("key", "")
         if 0 < len(record["zh"]) <= 8:
             collapsed[record["zh"]].add(_fold(source))
-    merged = [{"zh": value, "sources": sorted(sources)[:6], "count": len(sources)}
+    merged: list[_MergedValue] = [{"zh": value, "sources": sorted(sources)[:6], "count": len(sources)}
               for value, sources in collapsed.items()
               if len(sources) >= 3 and not _is_one_term(sources)
               and value not in ignored_values]
@@ -1335,8 +1343,8 @@ def terms_cmd(work: Annotated[str, cliutil.Argument(help="work dir")],
     for item in drift[:limit]:
         print(f"  {item['key_id']} {item['term']}->{item['expected']}: {item['zh']!r} (ja {item['ja']!r})")
     print(f"short value reused for >=3 different sources: {len(merged)}")
-    for item in merged[:5]:
-        print(f"  {item['zh']!r} x{item['count']} {item['sources'][:3]}")
+    for value in merged[:5]:
+        print(f"  {value['zh']!r} x{value['count']} {value['sources'][:3]}")
     return 0 if not drift and not merged else 1
 
 

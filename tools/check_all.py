@@ -241,10 +241,10 @@ def _render(outcomes: Sequence) -> str:
 def cmd(repo: Annotated[str, typer.Option(
         "--repo", metavar="DIR", help="checkout to test (default: this one)")]
         = REPO_ROOT,
-        only: Annotated[list[str], typer.Option(
+        only: Annotated[list[str] | None, typer.Option(
             "--only", metavar="NAME",
             help="run just these gates (repeatable)")] = None,
-        skip: Annotated[list[str], typer.Option(
+        skip: Annotated[list[str] | None, typer.Option(
             "--skip", metavar="NAME",
             help="skip these gates (repeatable)")] = None,
         fast: Annotated[bool, typer.Option(

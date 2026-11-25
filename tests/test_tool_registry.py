@@ -80,6 +80,7 @@ class TestToolResolution:
         monkeypatch.setenv("SEVENZ_WIN", str(exe))
         # path_form == "windows": the value is handed to PowerShell
         got = tool_registry.win_7z()
+        assert got is not None
         assert got.replace("\\", "/") == platform.posix(str(exe))
 
     def test_env_override_missing_file_falls_through(self, monkeypatch,
@@ -106,6 +107,7 @@ class TestToolResolution:
                    "win32": {"git": "git-*/bin/git.exe"}})
         monkeypatch.delenv("GIT", raising=False)
         got = tool_registry.find_git()
+        assert got is not None
         assert got.endswith("git-10.0/bin/git.exe"), got
 
     def test_config_relative_path_resolves_against_config_dir(

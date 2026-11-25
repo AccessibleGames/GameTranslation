@@ -129,7 +129,8 @@ def _split_chunks(ordered, max_chars):
     It was removed rather than left as dead code.
     """
     chunks = []
-    cur, cur_size = [], 0
+    cur: list[str] = []
+    cur_size = 0
     for k in ordered:
         if cur and cur_size + len(k) > max_chars:
             chunks.append(cur)
@@ -261,7 +262,7 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
     chunks = _split_chunks(ordered, max_chars)
 
     # per-chunk carry-over (last lines of previous chunk, in story order)
-    previous_tail = []
+    previous_tail: list[str] = []
     for n, keys in enumerate(chunks, 1):
         carry = previous_tail[:CARRY_OVER] if previous_tail else []
         tail = [k for k in keys if kinds.get(k) in ("block-line", "event-text")]

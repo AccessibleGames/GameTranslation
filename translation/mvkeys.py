@@ -34,6 +34,7 @@ import json
 import os
 import re
 from collections import Counter, OrderedDict, defaultdict
+from typing import TypedDict
 
 from rpgmaker import io_boundary
 
@@ -233,11 +234,11 @@ def comment_payloads(commands, tags):
     a plugin command is never touched (that is functional data, and the same
     comment text can legitimately appear in a script).
     """
-    out = []
+    out: list[tuple[str, int, str, int, list[int]]] = []
     if not tags:
         return out
     wanted = set(tags)
-    seen = defaultdict(int)
+    seen: defaultdict[str, int] = defaultdict(int)
     lst = commands or []
     index = 0
     total = len(lst)
@@ -304,10 +305,10 @@ def note_payloads(note, tags):
     previous matches of the *same* tag in this note, so the derived id stays
     unique and stable even when a note repeats a tag.
     """
-    out = []
+    out: list[tuple[str, int, str]] = []
     if not isinstance(note, str) or not note or not tags:
         return out
-    seen = defaultdict(int)
+    seen: defaultdict[str, int] = defaultdict(int)
     wanted = set(tags)
     for match in _NOTE_TAG_RE.finditer(note):
         tag, payload = match.group(1), match.group(2)
@@ -413,15 +414,19 @@ def speaker_of(text):
     return namebox_of(text) or prefix_speaker(text)
 
 
+class _NameRecord(TypedDict):
+    count: int
+    sources: list[str]
+
 class _Collector:
     """Accumulates keys in story order and remembers usage for the report."""
 
     def __init__(self, window=2):
         self.window = window
         self.entries = []
-        self.code_counts = Counter()
-        self.skipped = Counter()
-        self.names = defaultdict(lambda: {"count": 0, "sources": []})
+        self.code_counts: Counter[str] = Counter()
+        self.skipped: Counter[str] = Counter()
+        self.names: defaultdict[str, _NameRecord] = defaultdict(lambda: {"count": 0, "sources": []})
         self.actors = {}
         self._streams = defaultdict(list)
 
@@ -473,7 +478,7 @@ class _Collector:
         for seq, entry in enumerate(self.entries):
             entry["seq"] = seq
         for entries in self._streams.values():
-            windows = {}
+            windows: dict[tuple[str, int] | None, list[dict]] = {}
             for entry in entries:
                 marker = entry.pop("_window", None)
                 windows.setdefault(marker, []).append(entry)
@@ -834,7 +839,7 @@ def slice_keys(work_dir, start=0, count=None, kind=None, skip_ids=None):
     is always ``count`` keys of real work.  ``start`` still counts positions in
     the full list, so a resume can be expressed either way.
     """
-    out = []
+    out: list[dict] = []
     path = os.path.join(work_dir, "keys.jsonl")
     with open(path, encoding="utf-8") as handle:
         for seq, line in enumerate(handle):

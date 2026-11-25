@@ -24,7 +24,7 @@ import typer
 
 from kirikiri import ks_extract
 from rpgmaker import cliutil
-from tools import plain_io
+from tools import plain_io, scenario_common
 
 log = logging.getLogger("apply_ks_translation")
 
@@ -40,7 +40,7 @@ def patch_line(line, trans):
     return line[:left] + trans[key] + line[right:]
 
 
-def patch_file(src_path, out_path, items, trans, stats):
+def patch_file(src_path, out_path, items, trans, stats: scenario_common.PatchStats):
     """Rewrite one .ks file; returns (replaced, missing).
 
     The file keeps its original encoding unless the translation cannot be
@@ -85,7 +85,7 @@ def apply(work_dir, scenario_dir, out_dir, pack_name):
         log.error("scenario dir not found: %s", scenario_dir)
         raise typer.Exit(code=1)
 
-    stats = {"replaced": 0, "untranslated": 0, "missing": []}
+    stats: scenario_common.PatchStats = {"replaced": 0, "untranslated": 0, "missing": []}
     os.makedirs(out_dir, exist_ok=True)
     files_written = 0
     for m in structure.get("maps", []):

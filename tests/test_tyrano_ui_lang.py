@@ -78,16 +78,20 @@ class TestCheckValue:
         assert ul.check_value("a{ n }b", "\u7532{ n }\u4e59", "k") is None
 
     def test_rejects_placeholder_drift(self):
-        assert "placeholder" in ul.check_value("a{ n }b", "\u7532", "k")
+        message = ul.check_value("a{ n }b", "\u7532", "k")
+        assert message is not None and "placeholder" in message
 
     def test_rejects_newline_drift(self):
-        assert "newline" in ul.check_value("a\\n\\nb", "\u7532\\n\u4e59", "k")
+        message = ul.check_value("a\\n\\nb", "\u7532\\n\u4e59", "k")
+        assert message is not None and "newline" in message
 
     def test_rejects_kana(self):
-        assert "kana" in ul.check_value("a", "\u7532\u3042", "k")
+        message = ul.check_value("a", "\u7532\u3042", "k")
+        assert message is not None and "kana" in message
 
     def test_rejects_empty(self):
-        assert "empty" in ul.check_value("a", "   ", "k")
+        message = ul.check_value("a", "   ", "k")
+        assert message is not None and "empty" in message
 
 
 class TestApply:

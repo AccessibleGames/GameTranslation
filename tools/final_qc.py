@@ -47,7 +47,7 @@ def collect(p, exemptions=()):
     `exemptions` are compiled regexes matched against VALUES to silence the
     kana-residual check (onomatopoeia, author-name lines).
     """
-    found = {key: [] for _label, key in REPORTS}
+    found: dict[str, list[str | tuple[str, str]]] = {key: [] for _label, key in REPORTS}
     for k, v in p.items():
         if not isinstance(v, str):
             continue

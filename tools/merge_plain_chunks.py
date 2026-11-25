@@ -167,7 +167,7 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
         results = [run(n) for n in nums]
 
     for num, keys, vals, issues, ok in results:
-        if keys is None:
+        if keys is None or vals is None:
             if issues == ["zh.txt missing"]:
                 print("chunk_%02d: zh.txt missing (not translated)" % num)
             continue

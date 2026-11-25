@@ -82,7 +82,8 @@ def test_font_merge_scales_both_faces_and_prefers_primary_glyphs(tmp_path):
 
     with TTFont(output) as merged:
         cmap = merged.getBestCmap()
-        assert merged["head"].unitsPerEm == 2000
+        assert vars(merged["head"])["unitsPerEm"] == 2000
+        assert cmap is not None
         assert set(cmap) == {ord(character) for character in "ABC"}
         assert merged["hmtx"].metrics[cmap[ord("B")]][0] == 500
         assert merged["hmtx"].metrics[cmap[ord("C")]][0] == 750

@@ -122,7 +122,7 @@ def parse_path(path):
     hold any character other than the ``.``/``[``/``]`` separators, so
     non-ASCII and spaced parameter names parse too.
     """
-    tokens = []
+    tokens: list[tuple[str | None, int | None]] = []
     position = 0
     while position < len(path):
         char = path[position]
@@ -148,39 +148,12 @@ def parse_path(path):
 
 
 def set_by_path(root, tokens, value):
-    """Set `value` at `tokens` inside `root`; return True when it was set.
-
-    Handles the array/object command duality: when the current node is a list
-    and the token is the name ``parameters``, the realised position is
-    ``2 + N`` (the array form stores code, indent, then the parameters).
-    """
-    node = root
-    position = 0
-    while position < len(tokens):
-        name, index = tokens[position]
-        if name == "parameters" and isinstance(node, list) \
-                and position + 1 < len(tokens):
-            offset = tokens[position + 1][1]
-            if offset is None:
-                return False
-            position += 1                  # consume the "parameters" name
-            name, index = None, 2 + offset
-        if index is not None:
-            if not isinstance(node, list) or index >= len(node):
-                return False
-            if position == len(tokens) - 1:
-                node[index] = value
-                return True
-            node = node[index]
-        else:
-            if not isinstance(node, dict) or name not in node:
-                return False
-            if position == len(tokens) - 1:
-                node[name] = value
-                return True
-            node = node[name]
-        position += 1
-    return False
+    """Set the addressed value if its full JSON path exists."""
+    slot = _get_parent(root, tokens)
+    if slot is None:
+        return False
+    _write_slot(slot, value)
+    return True
 
 
 def parse_note_id(sub_path):
@@ -212,9 +185,9 @@ def _with_comment_text(command, text):
         params[0] = text
         updated["parameters"] = params
         return updated
-    updated = list(command)
-    updated[2] = text
-    return updated
+    updated_array = list(command)
+    updated_array[2] = text
+    return updated_array
 
 
 def set_comment_payload(root, sub_path, text):
@@ -233,8 +206,7 @@ def set_comment_payload(root, sub_path, text):
     holder = _get_parent(root, parse_path(base))
     if not holder:
         return False
-    container, key = holder
-    commands = container[key]
+    commands = _read_slot(holder)
     if not isinstance(commands, list):
         return False
     wanted = [p for p in mvkeys.comment_payloads(commands, (tag,))
@@ -269,20 +241,19 @@ def set_comment_payload(root, sub_path, text):
 
 
 def _get_parent(root, tokens):
-    """The container and final token ``tokens`` addresses (None when absent).
-
-    Mirrors :func:`set_by_path`'s handling of the array/object command duality
-    so a note payload reached through ``parameters[N]`` resolves the same way.
-    """
+    """Resolve the parent container and its final index or key."""
     node = root
-    for position, (name, index) in enumerate(tokens):
-        last = position == len(tokens) - 1
-        if name == "parameters" and isinstance(node, list) and not last:
+    position = 0
+    while position < len(tokens):
+        name, index = tokens[position]
+        # Array commands store code and indent before the actual parameters.
+        if name == "parameters" and isinstance(node, list) and position + 1 < len(tokens):
             offset = tokens[position + 1][1]
             if offset is None:
                 return None
-            node = node[2 + offset]
-            continue
+            position += 1
+            index = 2 + offset
+        last = position == len(tokens) - 1
         if index is not None:
             if not isinstance(node, list) or index >= len(node):
                 return None
@@ -295,7 +266,18 @@ def _get_parent(root, tokens):
             if last:
                 return node, name
             node = node[name]
+        position += 1
     return None
+
+
+def _read_slot(slot):
+    container, key = slot
+    return container[key]
+
+
+def _write_slot(slot, value):
+    container, key = slot
+    container[key] = value
 
 
 def set_note_payload(root, sub_path, text):
@@ -311,8 +293,7 @@ def set_note_payload(root, sub_path, text):
     holder = _get_parent(root, parse_path(base))
     if not holder:
         return False
-    container, key = holder
-    note = container[key]
+    note = _read_slot(holder)
     if not isinstance(note, str):
         return False
     pattern = re.compile(r"<" + re.escape(tag) + r":([^<>]*)>")
@@ -320,7 +301,7 @@ def set_note_payload(root, sub_path, text):
     if occurrence >= len(matches):
         return False
     match = matches[occurrence]
-    container[key] = note[:match.start(1)] + text + note[match.end(1):]
+    _write_slot(holder, note[:match.start(1)] + text + note[match.end(1):])
     return True
 
 
@@ -482,7 +463,7 @@ def apply_font(game_dir, font_path=None, repo_root=None, *, backup_dir=None):
             and not os.path.isfile(os.path.join(game_dir, FONT_CSS)):
         return apply_font_mz(game_dir, font_path=font_path, repo_root=repo_root,
                              backup_dir=backup_dir)
-    warnings = []
+    warnings: list[str] = []
     css_path = os.path.join(game_dir, FONT_CSS)
     if not os.path.isfile(css_path):
         return [], [f"no {FONT_CSS} (not an MV build?)"]
@@ -589,7 +570,7 @@ def _apply_values(game_dir, values, work_dir, dry_run):
     parameters are edited in memory and saved once at the end, not per key),
     else None.
     """
-    by_file = {}
+    by_file: dict[str, dict[str, str]] = {}
     for key_id, text in values.items():
         rel, _, path = key_id.partition("#")
         by_file.setdefault(rel, {})[path] = text

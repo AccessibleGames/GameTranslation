@@ -12,7 +12,7 @@ import json
 import logging
 import os
 import re
-from typing import Annotated
+from typing import Annotated, TypedDict
 
 from rpgmaker import cliutil, io_boundary, platform
 
@@ -31,6 +31,10 @@ SKIP_FIELDS = ("m_Script", "m_GameObject", "m_CorrespondingSourceObject",
                "m_PrefabInstance", "m_PrefabAsset",
                "m_ReflectionProbeBlendCullingGroup")
 
+
+class _TextUsage(TypedDict):
+    count: int
+    sources: list[str]
 
 def is_japanese(s):
     return bool(s) and bool(KANA_RE.search(s))
@@ -106,7 +110,7 @@ def _collect_bundle(env, rel, smap, stats, unique, rawf):
         script = tt.get("m_Script") or {}
         classname = smap.get(script.get("m_PathID"), "?")
         stats[classname] += 1
-        recs = []
+        recs: list[dict[str, str]] = []
         walk_collect(tt, "", recs, classname)
         for r in recs:
             text = r["text"]
@@ -167,7 +171,7 @@ def _write_outputs(out_dir, unique, sel, meta):
                               trailing_newline=False, ensure_parent=False)
     print("saved keys_target_meta.json / translated_template.json / "
           "texts_ja.json")
-    tc = collections.Counter()
+    tc: collections.Counter[str] = collections.Counter()
     for u in sel.values():
         for s in u["sources"]:
             tc[s.split("@")[0]] += 1
@@ -202,8 +206,8 @@ def cmd(game_dir: Annotated[str, cliutil.Argument(
 
     os.makedirs(out_dir, exist_ok=True)
 
-    stats = collections.Counter()
-    unique = collections.OrderedDict()
+    stats: collections.Counter[str] = collections.Counter()
+    unique: collections.OrderedDict[str, _TextUsage] = collections.OrderedDict()
     raw_path = os.path.join(out_dir, "extract_raw.jsonl")
     bundle_files = collect_bundles(root)
     log.info("%d bundle(s) under %s", len(bundle_files), root)

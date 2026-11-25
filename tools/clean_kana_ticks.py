@@ -83,7 +83,7 @@ CJK = re.compile(r"[\u4e00-\u9fff]")
 # Author/brand names are exempt from tick-cleaning.  Do NOT hardcode
 # per-game names here (game-specific pollution, same class as the old
 # hardcoded tone bug) - pass them via --exempt <file> (one per line).
-AUTHOR_NAMES = set()
+AUTHOR_NAMES: set[str] = set()
 
 
 def is_authorish(k, v):

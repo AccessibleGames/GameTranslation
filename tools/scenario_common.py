@@ -24,6 +24,13 @@ genuinely differs stays in the owning tool.
 import json
 import os
 import shutil
+from typing import TypedDict
+
+
+class PatchStats(TypedDict):
+    replaced: int
+    untranslated: int
+    missing: list[str]
 
 
 def find_scenario_dir(game_dir, explicit, candidates):

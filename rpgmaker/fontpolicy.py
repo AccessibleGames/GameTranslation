@@ -399,7 +399,8 @@ def decide_font(policy=DEFAULT_POLICY, font_id=DEFAULT_FONT_ID,
             detail=f"applying the font named by {source}: {chosen}"))
 
     record, problem = _resolve(policy, font_id, fonts_dir, check_checksum)
-    if problem is not None:
+    if record is None:
+        assert problem is not None
         return _unsatisfied(policy, problem, fonts_dir)
     warnings = _coverage_warnings(record)
     return _report(policy, FontDecision(

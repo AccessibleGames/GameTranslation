@@ -28,6 +28,8 @@ binary exists must say so.
 The checks are static (AST + config), so they cost nothing and cannot flake.
 """
 import ast
+from collections.abc import Callable
+from dataclasses import dataclass
 import os
 import re
 import subprocess
@@ -102,7 +104,7 @@ OPTIONAL_IMPORTS = frozenset({
 # Video/image encoding left the toolkit with the mobile build pipeline, so no
 # test may reach an encoder any more: the tuple is empty on purpose and the
 # check below stays as the place a reintroduced call would have to register.
-MEDIA_ONLY_CALLS = ()
+MEDIA_ONLY_CALLS: tuple[str, ...] = ()
 
 SKIP_CALLS = frozenset({"skip", "importorskip", "xfail"})
 
@@ -233,6 +235,16 @@ def _scope_markers(tree):
     return scopes
 
 
+@dataclass(frozen=True)
+class _MarkerLookup:
+    markers_at: Callable[[int], set[str]]
+    in_helper: Callable[[int], bool]
+    file_markers: Callable[[], set[str]]
+
+    def __call__(self, lineno: int) -> set[str]:
+        return self.markers_at(lineno)
+
+
 def _marker_scope_for(tree):
     """Return ``lookup(lineno)``: the markers of the innermost scope
     containing that line, module-level markers included.
@@ -280,9 +292,7 @@ def _marker_scope_for(tree):
             return not node.name.startswith("Test")
         return not node.name.startswith("test")
 
-    lookup.in_helper = in_helper
-    lookup.file_markers = file_markers
-    return lookup
+    return _MarkerLookup(lookup, in_helper, file_markers)
 
 
 def _declared_markers(tree):
@@ -605,7 +615,7 @@ def _workflow_steps():
     import yaml
 
     document = yaml.safe_load(_workflow())
-    steps = []
+    steps: list[tuple[str, str, str]] = []
     for job, body in (document.get("jobs") or {}).items():
         steps.extend(
             (job, step.get("name", ""), step["run"])

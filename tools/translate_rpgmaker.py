@@ -496,8 +496,7 @@ def translate_extern_csv(root, D, index):
     out_text = out.getvalue()
 
     if write_enc == "utf-16":
-        data = "\ufeff" + out_text
-        data = data.encode("utf-16-le")
+        data = ("\ufeff" + out_text).encode("utf-16-le")
     elif write_enc == "utf-8":
         data = ("\ufeff" + out_text).encode("utf-8")
     else:

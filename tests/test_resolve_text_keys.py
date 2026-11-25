@@ -298,6 +298,17 @@ def test_resolve_build_supports_both_command_shapes(tmp_path):
     assert map2["events"][0]["pages"][0]["list"][0][2] == ZH_CONTINUE
 
 
+def test_rewrite_document_resolves_an_immutable_command_tuple(tmp_path):
+    command = (401, 0, "\\T[SIS2]")
+    document = {"list": [command]}
+
+    rtk.rewrite_document(document, "Map001.json", resolver_of(str(tmp_path)),
+                         new_stats(), classify=False)
+
+    assert document["list"] == [[401, 0, ZH_CONTINUE]]
+    assert command[2] == "\\T[SIS2]"
+
+
 def test_resolve_build_rewrites_plugin_parameters(tmp_path):
     build = make_build(str(tmp_path), plugins=[
         {"name": "QuestSystem.js", "status": True, "parameters": {
@@ -366,7 +377,9 @@ def test_resolve_build_without_data_fails(tmp_path):
 
 def test_find_dict_autodetects_root_dictionary(tmp_path):
     build = make_build(str(tmp_path))
-    assert os.path.basename(rtk.find_dict(build)) \
+    found = rtk.find_dict(build)
+    assert found is not None
+    assert os.path.basename(found) \
         == "\u7ffb\u8bd1\u6587\u4ef6.json"
 
 

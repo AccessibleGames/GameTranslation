@@ -120,7 +120,7 @@ def augment(work_dir, items, window):
 
     # group by where (file), preserving story order
     groups = []
-    group_keys = {}
+    group_keys: dict[str, list[str]] = {}
     for where, key in items:
         if key in tpl:
             continue
@@ -216,16 +216,16 @@ class _ResourceFixer:
                     out[k] = v
             return out
         if isinstance(obj, list):
-            out = []
+            items = []
             for x in obj:
                 if isinstance(x, (dict, list)):
-                    out.append(self.walk(x))
+                    items.append(self.walk(x))
                 else:
                     fixed = self.fix(x)
                     if fixed is not x:
                         self.n_changed += 1
-                    out.append(fixed)
-            return out
+                    items.append(fixed)
+            return items
         return obj
 
     def coverage(self):
@@ -236,7 +236,7 @@ class _ResourceFixer:
 
 def _resource_targets(game_dir, lang_dirs, tweet_files):
     """Every JSON under `data/resources/<lang>/` plus the named tweet files."""
-    targets = []
+    targets: list[str] = []
     for lang in lang_dirs:
         base = os.path.join(game_dir, "data", "resources", lang)
         if not os.path.isdir(base):

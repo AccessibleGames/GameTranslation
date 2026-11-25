@@ -292,6 +292,30 @@ class TestMain:
         assert "REPAIR UNABLE" in out
         assert merged(tmp_path) == {}
 
+    def test_exhausted_repairs_do_not_reuse_previous_chunk(self, tmp_path,
+                                                         monkeypatch, capsys):
+        chunks = chunks_dir(tmp_path)
+        write_json(chunks / "chunk_01.json", {KEY: ""})
+        write_json(chunks / "chunk_01.translated.json", {KEY: "Hello"})
+        write_json(chunks / "chunk_02.json", {KEY: ""})
+        write_text(chunks / "chunk_02.translated.json", "{")
+        repair = qc.repair_file
+        attempts = []
+
+        def repair_with_persistent_failure(path):
+            if path.endswith("chunk_02.translated.json"):
+                attempts.append(path)
+                return "{", 1
+            return repair(path)
+
+        monkeypatch.setattr(qc, "repair_file", repair_with_persistent_failure)
+        run_main(monkeypatch, tmp_path)
+
+        output = capsys.readouterr().out
+        assert len(attempts) == 3
+        assert "chunk_02.translated.json: REPAIR UNABLE" in output
+        assert merged(tmp_path) == {KEY: "Hello"}
+
     def test_kana_residue_is_reported_but_still_merged(self, tmp_path,
                                                        monkeypatch, capsys):
         """QC reports, it does not block: the merged file keeps the flagged

@@ -43,7 +43,7 @@ def scan_tree(root):
     real, untranslated piece of display text.
     """
     total = residual = 0
-    by_file = {}
+    by_file: dict[str, list[tuple[int, str]]] = {}
     for path in sorted(glob.glob(os.path.join(root, "**", "*.ks"),
                                  recursive=True)):
         text, _enc = load_ks(path)

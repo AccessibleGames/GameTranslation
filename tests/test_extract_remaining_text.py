@@ -36,6 +36,7 @@ def make_game(root, maps=None, common_events=None, actors=None, items=None,
     data = os.path.join(root, "data")
     os.makedirs(data)
     os.makedirs(os.path.join(root, "js"))
+    maps = maps or {}
     if mapinfos_order is None:
         mapinfos_order = [(i + 1, maps[f][0] or ("MAP%03d" % (i + 1)))
                           for i, f in enumerate(sorted(maps or {}))]

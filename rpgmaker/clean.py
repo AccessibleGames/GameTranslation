@@ -40,7 +40,7 @@ def _corpus_text(web_root):
     File reads run on a thread pool: a game corpus is thousands of small
     files, and the scan is I/O-bound.
     """
-    paths = []
+    paths: list[str] = []
     data_dir = os.path.join(web_root, "data")
     js_dir = os.path.join(web_root, "js")
     for base in (data_dir, js_dir,
@@ -139,7 +139,7 @@ def remove_unused_fonts(web_root, dry_run=False):
 
 
 def _referenced_tilesets(web_root):
-    names = []
+    names: list[str] = []
     tilesets_path = os.path.join(web_root, "data", "Tilesets.json")
     if not os.path.isfile(tilesets_path):
         return set()

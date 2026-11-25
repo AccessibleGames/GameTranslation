@@ -372,7 +372,7 @@ def cmd(
             print("    test: pytest {}".format(" ".join(mutation.selector)))
         return 0
 
-    selected = MUTATIONS
+    selected: tuple[Mutation, ...] = MUTATIONS
     if only:
         wanted = [part.strip() for part in only.split(",") if part.strip()]
         unknown = [mid for mid in wanted if mid not in BY_ID]

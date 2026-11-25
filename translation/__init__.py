@@ -19,4 +19,6 @@ Module map:
   ``cli``        one Typer app over all of the above
 """
 
+from . import codes, mvkeys, rawlib, workspace
+
 __all__ = ["codes", "mvkeys", "rawlib", "workspace"]

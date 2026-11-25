@@ -104,6 +104,12 @@ class TestParse:
             plugins_io.parse_plugins_js("")
 
 
+    @pytest.mark.parametrize("value", ["null", "42", '{"name": "Fixture"}'])
+    def test_plugin_definition_requires_an_array(self, value):
+        with pytest.raises(ValueError, match="must contain an array"):
+            plugins_io.parse_plugins_js(f"var $plugins = {value};")
+
+
 class TestDump:
     def test_roundtrip(self):
         plugins = [{"name": "A.js", "status": True, "description": "",

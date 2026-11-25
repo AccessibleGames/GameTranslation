@@ -176,47 +176,14 @@ up030 = 0
 sim115 = 162
 
 [tool.mypy]
-# Phase 6 task 2.  One checker only, never mypy *and* pyright (plan §7).
-#
-# Two tiers, because the repo has ~1163 functions without annotations and
-# demanding all of them at once would mean a single unreviewable commit:
-#
-#   1. every module is checked WITH body checking on (``check_untyped_defs``),
-#      so an unannotated function's body is still analysed and a wrong call is
-#      still caught.  The outstanding error COUNT is budgeted in
-#      ``[tool.gametranslation.mypy-burndown]`` and may only go down.
-#   2. modules that are already clean under this same flag set are listed in
-#      ``[tool.gametranslation.mypy-strict]`` and held at ZERO errors by
-#      ``tools/mypy_check.py``, so a cleaned module cannot silently regress
-#      while the global count absorbs the slack.
-#
-# The next rung is ``disallow_untyped_defs`` (annotated signatures).  Measured
-# this round it is already satisfied by 12 files, but most of them are trivially
-# so because they define nothing: the eight ``__init__.py`` files plus
-# ``rpgmaker/constants.py``, ``rpgmaker/japanese.py``,
-# ``tools/japanese_utils.py`` and ``tools/rpgmaker_constants.py``.  The honest
-# reading is that the annotated-signature rung has barely started; modules move
-# there as their signatures are annotated.
-#
-# ``no_site_packages`` keeps this repository's error budget independent of
-# changes to third-party stubs. Third-party packages remain Any deliberately;
-# Python, lint and type checking now share the Python 3.14 baseline.
-#
-# ``platform`` is pinned for the same reason, one level down: without it mypy
-# types the standard library for the *host* OS, so a Windows-only attribute
-# (``ctypes.windll``) is an error on Linux CI and fine locally, and the same
-# commit measures 189 errors there and 188 here.  A budget that depends on
-# which runner reads it cannot be enforced, and CI caught exactly that
-# (mypy: 189 error(s), budget 188).  The offending line was rewritten to
-# ``getattr(ctypes, "windll", None)`` as well, so the two platforms agree;
-# pinning keeps the next such site from silently splitting the budget again.
+# CI uses mypy without third-party stubs and with a fixed stdlib platform.
+# Editor diagnostics use the project's uv environment below.
 python_version = "3.14"
 platform = "linux"
 no_site_packages = true
 ignore_missing_imports = true
 show_error_codes = true
 
-# Checked, but a lower bar than the strict group.
 check_untyped_defs = true
 no_implicit_optional = true
 strict_equality = true
@@ -224,18 +191,8 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 
 [tool.gametranslation.mypy-burndown]
-# Not a mypy option: read by tests/test_mypy.py
-# (`test_the_error_budget_only_shrinks`).  Phase 6 task 2 is a burndown, not a
-# one-shot rewrite - the count measures how much of the repo still carries
-# implicit Any from unannotated defs and untyped containers.  Lower it as
-# modules are annotated; never raise it to admit new debt.
-#
-# Measured with:
-#   python -m mypy rpgmaker kirikiri tyrano wolfrpg unity translation tools
-#
-# The count must not depend on the host OS (see the ``platform`` note above
-# ``[tool.mypy]``), so it is measured under that pinned platform.
-errors = 164
+# tools.mypy_check enforces zero errors across all production packages.
+errors = 0
 
 [tool.gametranslation.mypy-strict]
 # Modules ``tools/mypy_check.py`` holds at zero errors.  Sorted; add a module
@@ -282,3 +239,10 @@ ignore = [
     "UP030",   # ''.format(a=1)
     "SIM115",  # open-without-with
 ]
+
+[tool.basedpyright]
+# Match the Python version and environment created by uv sync.
+pythonVersion = "3.14"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"

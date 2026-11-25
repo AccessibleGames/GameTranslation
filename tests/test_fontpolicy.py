@@ -441,10 +441,12 @@ class TestCoverageWarnings:
         directory = _write_manifest(tmp_path / "fonts",
                                     [_entry(coverage={})])
         record = fontpolicy.load_manifest(directory).get("common-zh")
+        assert record is not None
         assert record.covers_gb_simplified is None
 
     def test_coverage_is_echoed_in_the_record(self, fonts):
         record = fontpolicy.load_manifest(fonts).get("common-zh")
+        assert record is not None
         assert record.covers_gb_simplified is True
         assert record.family == "Placeholder Sans"
         assert record.license == "OFL-1.1"
@@ -456,9 +458,11 @@ def test_manifest_can_register_primary_and_fallback_faces(tmp_path):
     manifest = fontpolicy.load_manifest(directory)
     assert not manifest.problems
     primary = manifest.get("common-zh")
+    assert primary is not None
     assert primary.postscript_name == "ExampleSans"
     assert primary.size_bytes == len(FONT_BYTES)
     assert primary.covers_gb_simplified is True
     fallback = manifest.get("common-ja")
+    assert fallback is not None
     assert fallback.covers_gb_simplified is False
     assert fallback.coverage["covers_japanese_kana"] is True

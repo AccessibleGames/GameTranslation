@@ -92,7 +92,7 @@ class Harvester:
     def __init__(self, runtime, kinds):
         self.runtime = runtime
         self.kinds = kinds
-        self.snorm = {}
+        self.snorm: dict[str, str] = {}
         for k, v in runtime.items():
             stripped = strip_codes(k)
             # A key that is nothing but control codes strips to "":
@@ -241,6 +241,7 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
             stats["miss"] += 1
         else:
             translated[key] = value
+            assert how is not None
             stats[how] += 1
 
     out_path = os.path.join(work, out)

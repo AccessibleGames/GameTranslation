@@ -167,7 +167,7 @@ class TestParallelQc:
         for i in range(8):
             num, keys, vals, issues, ok = mpc._process_chunk(
                 str(work1 / "chunks"), i)
-            assert ok
+            assert ok and keys is not None and vals is not None
             merged_ref.update(dict(zip(keys, vals, strict=True)))
         monkeypatch.setattr("sys.argv", ["merge_plain_chunks.py", str(work2)])
         mpc.main()

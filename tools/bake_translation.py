@@ -548,8 +548,8 @@ def _translate_file(path, D, fname, write):
     (review §4.2: map-level parallelism with correct JSON parse/write-back)."""
     local = {"hit": 0, "miss": 0}
     _thread_stats.value = local
-    event_names = set()
-    refs = []
+    event_names: set[str] = set()
+    refs: list[tuple[str, str]] = []
     try:
         with open(path, encoding="utf-8-sig") as f:
             data = json.load(f)

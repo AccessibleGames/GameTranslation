@@ -29,7 +29,7 @@ def ev_containers(data):
     """Event dicts from an MZ/MV map / CommonEvents object.  A raw list is
     treated as the event array itself (CommonEvents.json); a dict yields the
     events of its "events" and "commonEvents" keys in that order."""
-    out = []
+    out: list[dict] = []
     if isinstance(data, list):
         return [x for x in data if isinstance(x, dict)]
     for key in ("events", "commonEvents"):
@@ -75,7 +75,7 @@ def talk_lines(commands):
 
 
 def pos_map(lines):
-    positions = {}
+    positions: dict[int, int] = {}
     for position, (index, _) in enumerate(lines):
         positions.setdefault(index, position)
     return positions

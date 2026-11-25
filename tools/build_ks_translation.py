@@ -148,12 +148,14 @@ def build(game_dir, work_dir, scenario_dir, entry):
                   game_dir, ", ".join(SCENARIO_CANDIDATES))
         raise typer.Exit(code=1)
 
-    tpl, kinds, ctx = {}, {}, {}
+    tpl: dict[str, str] = {}
+    kinds: dict[str, str] = {}
+    ctx: dict[str, dict] = {}
     maps = []
     total_lines = 0
     skipped = []
     for name in story_order(src, entry):
-        items = []
+        items: list[dict] = []
         try:
             n = extract_file(os.path.join(src, name), name, tpl, kinds, ctx,
                              items)

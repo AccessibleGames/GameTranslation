@@ -38,14 +38,15 @@ class _Env:
 
 def _fake_unitypy(monkeypatch, per_bundle):
     """Install a stub `UnityPy` module; `per_bundle(path)` -> object list."""
-    mod = types.ModuleType("UnityPy")
-
-    def load(path):
+    def load_fixture(path):
         if os.path.basename(path).startswith("bad"):
             raise ValueError("corrupt bundle")
         return _Env(per_bundle(path))
 
-    mod.load = load
+    class FakeUnityPy(types.ModuleType):
+        load = staticmethod(load_fixture)
+
+    mod = FakeUnityPy("UnityPy")
     monkeypatch.setitem(sys.modules, "UnityPy", mod)
     return mod
 
@@ -79,7 +80,8 @@ class TestHelpers:
 
     def test_find_bundle_root(self, tmp_path):
         game = _make_game(tmp_path)
-        assert X.find_bundle_root(game).endswith("StandaloneWindows64")
+        root = X.find_bundle_root(game)
+        assert root is not None and root.endswith("StandaloneWindows64")
 
     def test_find_bundle_root_ignores_unusable_candidates(self, tmp_path):
         game = tmp_path / "game"

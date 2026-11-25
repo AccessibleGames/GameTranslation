@@ -120,7 +120,7 @@ class Decoder:
 
     def _read_array(self):
         n = self.read_long()
-        arr = [None] * n
+        arr: list[object] = [None] * n
         self.links.append(arr)
         for i in range(n):
             arr[i] = self._read_raw()
@@ -128,7 +128,7 @@ class Decoder:
 
     def _read_hash(self):
         n = self.read_long()
-        d = {}
+        d: dict[object, object] = {}
         self.links.append(d)
         for _ in range(n):
             k = self._read_raw()
@@ -200,7 +200,7 @@ class Decoder:
         if c == "S":
             cls = self._read_raw()
             n = self.read_long()
-            d = {"__struct__": cls}
+            d: dict[object, object] = {"__struct__": cls}
             self.links.append(d)
             for _ in range(n):
                 k = self._read_raw()
@@ -248,7 +248,7 @@ class Decoder:
     def _read_object(self):
         cls = self._read_raw()
         n = self.read_long()
-        obj = {}
+        obj: dict[object, object] = {}
         self.links.append(obj)
         for _ in range(n):
             k = self._read_raw()

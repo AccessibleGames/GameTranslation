@@ -109,12 +109,12 @@ class TestWslSide:
         assert "no other/ entry" in str(ei.value)
 
     def test_wsl_side_corrupt_archive_raises(self, tmp_path, monkeypatch):
-        import py7zr
+        from py7zr.exceptions import Bad7zFile
         archive, dest = _make_archive_and_dest(tmp_path)   # b"FAKE" body
         monkeypatch.setattr(platform, "is_windows_side", lambda p: False)
         # The archive layer must let the container library's own error out
         # rather than swallowing it; Bad7zFile is py7zr's "not a 7z file".
-        with pytest.raises(py7zr.exceptions.Bad7zFile):
+        with pytest.raises(Bad7zFile):
             deliver._extract_wsl_side(archive, dest, "game")
 
 

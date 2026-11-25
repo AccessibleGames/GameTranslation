@@ -86,7 +86,7 @@ def key_create(source: bytes) -> bytes:
     return struct.pack("<II", c0, c1)[:7]
 
 
-def key_conv(data: bytearray, position: int, key: bytes) -> None:
+def key_conv(data: bytearray, position: int, key: bytes | None) -> None:
     """XOR a buffer with the repeating key, starting at key offset position."""
     if not key:
         return
@@ -687,9 +687,9 @@ def _unpack_mapped(raw, out_dir: str, key_string: bytes,
                     # middle is stored raw.  huff_data layout:
                     # [front window][back window].
                     move = head.huffman_kb * 1024
-                    lz_full = bytearray(file.press_size)
-                    lz_full[0:move] = huff_data[0:move]
-                    lz_full[file.press_size - move :] = huff_data[
+                    compressed = bytearray(file.press_size)
+                    compressed[0:move] = huff_data[0:move]
+                    compressed[file.press_size - move :] = huff_data[
                         move : 2 * move
                     ]
                     mid_start = data_start + file.huff_press_size
@@ -700,7 +700,8 @@ def _unpack_mapped(raw, out_dir: str, key_string: bytes,
                         file.data_size + file.huff_press_size,
                         fkey,
                     )
-                    lz_full[move : move + mid_size] = mid
+                    compressed[move : move + mid_size] = mid
+                    lz_full = bytes(compressed)
                 else:
                     lz_full = huff_data
                 out_data = lz_decode(bytes(lz_full), file.data_size)
@@ -737,11 +738,9 @@ def _unpack_mapped(raw, out_dir: str, key_string: bytes,
                 else:
                     out_data = huff_data
             else:
-                out_data = bytearray(
-                    raw[data_start : data_start + file.data_size]
-                )
-                key_conv(out_data, file.data_size, fkey)
-                out_data = bytes(out_data)
+                stored = bytearray(raw[data_start : data_start + file.data_size])
+                key_conv(stored, file.data_size, fkey)
+                out_data = bytes(stored)
         fout.write(out_data)
 
     def walk(directory: DxaDirectory, destination: str) -> int:
@@ -783,7 +782,7 @@ def _strip_protection(path: str) -> None:
 
 def cmd(archive: Annotated[str, cliutil.Argument(help="path to the .wolf file")],
         out_dir: Annotated[str, cliutil.Argument(help="output directory")],
-        key: Annotated[str, cliutil.Option(
+        key: Annotated[str | None, cliutil.Option(
             "--key", help="game key string (per-game; defaults to the engine "
             "default). Passed explicitly: the key is game data, never "
             "hardcoded here.")] = None,

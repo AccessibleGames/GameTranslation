@@ -131,7 +131,7 @@ def codes_(
 
 def to_json(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
-    out: Annotated[str, cliutil.Option(
+    out: Annotated[str | None, cliutil.Option(
         "--out", help="translated.json path (default: inside the work dir)")] = None,
     verbose: cliutil.Verbose = False,
     quiet: cliutil.Quiet = False,
@@ -167,7 +167,7 @@ def rewrite(
 
 def gates(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
-    markdown: Annotated[str, cliutil.Option(
+    markdown: Annotated[str | None, cliutil.Option(
         "--markdown", help="also write the human summary here")] = None,
     verbose: cliutil.Verbose = False,
     quiet: cliutil.Quiet = False,
@@ -213,7 +213,7 @@ def slice_(
         "--start", help="first story-order position")] = 0,
     count: Annotated[int, cliutil.Option(
         "--count", help="how many keys to take")] = 40,
-    kind: Annotated[str, cliutil.Option(
+    kind: Annotated[str | None, cliutil.Option(
         "--kind", help="only this kind (map/common/troop/db/ui/plugin)")] = None,
     compact: Annotated[bool, cliutil.Option(
         "--compact", help="drop where/kind/seq (cheaper to read)")] = False,
@@ -221,7 +221,7 @@ def slice_(
         "--lean", help="only id/ja/speaker/where (no context lines)")] = False,
     todo: Annotated[bool, cliutil.Option(
         "--todo", help="skip keys the library already translates")] = False,
-    out: Annotated[str, cliutil.Option(
+    out: Annotated[str | None, cliutil.Option(
         "--out", help="write the slice here (default: stdout)")] = None,
     verbose: cliutil.Verbose = False,
     quiet: cliutil.Quiet = False,
@@ -279,7 +279,7 @@ def prefill(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     dict_path: Annotated[str, cliutil.Argument(
         help="runtime MTool/AI dictionary JSON shipped with the repack")],
-    out: Annotated[str, cliutil.Option(
+    out: Annotated[str | None, cliutil.Option(
         "--out", help="batch file to write (default: <work>/prefill.batch.txt)")] = None,
     verbose: cliutil.Verbose = False,
     quiet: cliutil.Quiet = False,
@@ -320,7 +320,7 @@ def append(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     batch: Annotated[str, cliutil.Option(
         "--batch", help="batch file to append (same format as the library)")],
-    note: Annotated[str, cliutil.Option(
+    note: Annotated[str | None, cliutil.Option(
         "--note", help="also log a progress line with this note")] = None,
     fix_leading: Annotated[bool, cliutil.Option(
         "--fix-leading", help="restore a missing leading control code from the source")] = False,
@@ -362,7 +362,7 @@ def pending(
     work_dir: Annotated[str, cliutil.Argument(help="translation work dir")],
     why: Annotated[str, cliutil.Option(
         "--why", help="the question / reason (escaped for you)")],
-    key_id: Annotated[str, cliutil.Option(
+    key_id: Annotated[str | None, cliutil.Option(
         "--id", help="the key or topic this is about")] = None,
     status: Annotated[str, cliutil.Option(
         "--status", help="open (default) / resolved / decided / wontfix")] = "open",
@@ -393,7 +393,7 @@ def decide(
         "--reason", help="why these are decided (recorded verbatim)")],
     all_open: Annotated[bool, cliutil.Option(
         "--all-open", help="decide every still-open entry")] = False,
-    key_id: Annotated[str, cliutil.Option(
+    key_id: Annotated[str | None, cliutil.Option(
         "--id", help="decide only this entry")] = None,
     status: Annotated[str, cliutil.Option(
         "--status", help="resolved (default) / decided / wontfix")] = "decided",
@@ -414,15 +414,10 @@ def decide(
     cliutil.setup_logging(verbose, quiet, log_file)
     cliutil.own_paths("decide pending translations", work_dir=work_dir)
     path = os.path.join(work_dir, "pending.jsonl")
-    records, errors = rawlib.read_jsonl_report(path)
+    latest, _, errors = rawlib.read_pending(work_dir)
     if errors:
         return cliutil.fail("pending.jsonl has %d unparsable line(s) "
                            "(fix them first)" % len(errors))
-    latest = {}
-    for item in records:
-        key = (item.get("id") or item.get("question") or item.get("why")
-               or json.dumps(item, ensure_ascii=False, sort_keys=True))
-        latest[key] = item
     targets = [key for key, item in latest.items()
                if (item.get("status") or "open") not in rawlib.CLOSED_STATUS]
     if key_id:
@@ -448,7 +443,7 @@ def bake(
         "--no-font", help="skip the unified-font step (not recommended)")] = False,
     font_only: Annotated[bool, cliutil.Option(
         "--font-only", help="only unify fonts (text is already baked)")] = False,
-    font: Annotated[str, cliutil.Option(
+    font: Annotated[str | None, cliutil.Option(
         "--font", help="font asset to install (default: the font policy's "
         "own resolution: registered manifest, then CJK_FONT_PATH, then the "
         "local font-paths file)")] = None,

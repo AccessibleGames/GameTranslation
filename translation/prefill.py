@@ -87,15 +87,15 @@ def harvest(work_dir, dict_path, allow_ids=None):
     """
     entries = mvkeys.load_keys(work_dir)
     runtime = load_runtime_dict(dict_path)
-    stripped = {}
+    stripped: dict[str, str] = {}
     for key, value in runtime.items():
         bare = rawlib.readable_text(key).strip() or key.strip()
         if bare:
             stripped.setdefault(bare, value)
 
-    stats = Counter()
+    stats: Counter[str] = Counter()
     candidates = {}
-    problems = Counter()
+    problems: Counter[str] = Counter()
     for entry in entries:
         key_id, source = entry["id"], entry["ja"]
         if allow_ids is not None and key_id not in allow_ids:

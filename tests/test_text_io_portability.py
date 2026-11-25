@@ -110,7 +110,7 @@ def _scan_tree(tree):
         if mode is None:
             dynamic.append(node.lineno)
             continue
-        if "b" in mode or mode not in TEXT_MODES:
+        if not isinstance(mode, str) or "b" in mode or mode not in TEXT_MODES:
             continue
         if _has_encoding(node):
             continue

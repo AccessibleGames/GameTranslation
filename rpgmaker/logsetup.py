@@ -117,7 +117,7 @@ def setup(verbose=False, quiet=False, level=None, log_file=None):
     _owned.clear()
 
     formatter = logging.Formatter(FORMAT, DATEFMT)
-    handlers = [logging.StreamHandler(sys.stderr)]
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
     if log_file:
         parent = os.path.dirname(os.path.abspath(str(log_file)))
         if parent:

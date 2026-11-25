@@ -348,6 +348,7 @@ def test_plugin_parameters_are_inventory_only(tmp_path, capsys):
         {"name": "P", "parameters": {"popupMessage": KANA_TEXT,
                                      "Crack SE": "glass.ogg"}}])
     findings = qc.scan(build)
+    assert "plugins" in findings
     assert findings["plugins"]["strings"] == 1
     assert findings["unexpected"] == []
     assert qc.main([build]) == 0
@@ -366,7 +367,8 @@ def test_plugin_scan_reviews_kana_free_cjk_labels(tmp_path, capsys):
              [json.dumps({"Text": "\u5712\u7530\u6674\u9999"}, ensure_ascii=False)],
              ensure_ascii=False)}}])
     findings = qc.scan(build)
-    review = [text for _where, text in findings["plugins"]["review"]]
+    assert "plugins" in findings
+    review = [text for _where, text in findings["plugins"].get("review", [])]
     assert review == ["\u5712\u7530\u6674\u9999"]
     assert findings["plugins"]["strings"] == 0
     assert findings["unexpected"] == []
@@ -401,7 +403,7 @@ def test_unreadable_data_file_is_reported(tmp_path, capsys):
                  encoding="utf-8") as handle:
         handle.write("{")
     findings = qc.scan(build)
-    assert findings["unreadable"]
+    assert findings.get("unreadable")
     assert qc.main([build]) == 1
     assert "UNREADABLE" in capsys.readouterr().out
 

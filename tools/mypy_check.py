@@ -63,7 +63,7 @@ COULD_NOT_RUN = 2
 UNKNOWN = "UNKNOWN"
 
 
-def parse_errors(output: str) -> int:
+def parse_errors(output: str | None) -> int:
     """Count ``error:`` lines that belong to this repo.
 
     Two filters matter:

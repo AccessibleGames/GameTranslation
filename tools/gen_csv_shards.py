@@ -126,7 +126,9 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
               % (len(done), len(tpl)))
 
     keys = list(tpl.keys())
-    buckets, cur, cur_len = [], [], 0
+    buckets = []
+    cur: list[str] = []
+    cur_len = 0
     for k in keys:
         if cur and cur_len + len(k) > max_chars:
             buckets.append(cur)

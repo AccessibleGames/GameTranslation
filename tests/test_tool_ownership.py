@@ -135,7 +135,8 @@ def _is_fs_node(child):
 def _first_fs_call_line(node):
     """Line number of the earliest filesystem call in a command body."""
 
-    found = [child.lineno for child in ast.walk(node) if _is_fs_node(child)]
+    found = [child.lineno for child in ast.walk(node)
+             if isinstance(child, (ast.Attribute, ast.Call)) and _is_fs_node(child)]
     return min(found) if found else None
 
 
@@ -177,7 +178,7 @@ class TestEveryToolGatesItsPaths:
             first = _first_fs_call_line(node)
             if first is None:
                 continue
-            assert gate < first, (
+            assert gate is not None and gate < first, (
                 f"{path}:{node.lineno} {node.name}() calls a filesystem "
                 f"function on line {first} before its gate on line {gate}")
 

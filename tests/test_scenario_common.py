@@ -33,6 +33,7 @@ class TestFindScenarioDir:
         # explicit path must be returned even when a candidate also exists
         got = sc.find_scenario_dir(str(root), "System/Scenario",
                                    ("scenario",))
+        assert got is not None
         assert Path(got) == root / "System" / "Scenario"
 
     def test_candidates_order(self, tmp_path):

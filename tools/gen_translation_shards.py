@@ -161,7 +161,7 @@ def done_keys(chunks_dir):
             continue
         num = int(m.group(1))
         keys, vals = plain_io.load_pair(chunks_dir, num)
-        if keys is None:
+        if keys is None or vals is None:
             continue
         if len(vals) == len(keys):
             done.update(keys)
@@ -281,7 +281,7 @@ def _emit_chunks(chunks_dir, args, global_keys, map_keys, tone, glossary,
     # every story chunk's context.md opens with the previous chunk's last
     # CARRY_OVER dialogue keys, so a linear scene split across chunks keeps
     # continuity (a fresh agent otherwise translates mid-scene blind).
-    prev_keys = []
+    prev_keys: list[str] = []
     if args.max_chars:
         for groups in build_buckets(map_keys, args.max_chars):
             keys = [k for _l, ks in groups for k in ks]
@@ -384,7 +384,9 @@ def cmd(work_dir: Annotated[str, cliutil.Argument(
 def _split_by_len(keys, max_chars):
     """Greedily bucket ordered keys so each bucket's total char length stays
     <= max_chars; a key longer than the cap forms its own bucket."""
-    buckets, cur, cur_len = [], [], 0
+    buckets = []
+    cur: list[str] = []
+    cur_len = 0
     for k in keys:
         if cur and cur_len + len(k) > max_chars:
             buckets.append(cur)
@@ -477,8 +479,9 @@ def _write(chunks_dir, num, chunk, title, tone,
     plain_io.save_lines(base + ".ja.txt", keys)
 
     labels = []
+    context = ctx or {}
     for k in keys:
-        where = (ctx.get(k, {}) or {}).get("where", "")
+        where = (context.get(k, {}) or {}).get("where", "")
         m = re.match(r"([^/]+)", where)
         if m and m.group(1).strip() not in labels:
             labels.append(m.group(1).strip())
@@ -501,7 +504,9 @@ def build_buckets(map_keys, max_chars):
     the --max-chars path): every bucket stays <= max_chars total key chars, a
     single overlong key forms its own bucket, consecutive keys of one map are
     grouped.  Returns a list of group lists [(label, [keys])]."""
-    buckets, cur, cur_len = [], [], 0
+    buckets = []
+    cur: list[tuple[str, list[str]]] = []
+    cur_len = 0
     for label, keys in map_keys:
         for k in keys:
             if cur_len and cur_len + len(k) > max_chars:

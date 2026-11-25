@@ -138,7 +138,7 @@ def split_line(line):
     closes - such lines are never translated.
     """
     segments = []
-    buf = []
+    buf: list[str] = []
     depth = 0
     i, n = 0, len(line)
     while i < n:

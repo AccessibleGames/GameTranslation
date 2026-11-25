@@ -53,7 +53,7 @@ WINDOW = rpgmaker_common.DIALOGUE_RADIUS
 # extract_plugin_text() is invoked repeatedly (each build loops over every
 # data/*.json first, then collects plugin text once).  The key includes
 # mtime + size so a modified file invalidates the entry and re-parses.
-_plugin_cache = {}
+_plugin_cache: dict[tuple[str | int, ...], list[dict]] = {}
 
 DISPLAY_KEYS = {"name", "nickname", "profile", "description",
                 "message1", "message2", "message3", "message4", "text"}
@@ -115,8 +115,8 @@ class Collector:
         self.keys = set()            # all keys (plain + located)
         self.kind_of = {}            # key -> kind
         self.context = {}            # key -> {"where": ..., "window": [...]}
-        self.count = collections.Counter()
-        self.name_cands = collections.Counter()
+        self.count: collections.Counter[str] = collections.Counter()
+        self.name_cands: collections.Counter[str] = collections.Counter()
         self._seen = {}              # base text -> occurrence count
 
     def add(self, key, kind, where="", window=None, loc=""):
@@ -149,7 +149,7 @@ def build_name_macros(data_dir):
     (like C++/LaTeX): the code itself is never translated, the referenced
     actor name is translated in the DB.  The table helps agents understand
     what a code means when they see it in a key."""
-    macros = {}
+    macros: dict[str, str] = {}
     actors_path = os.path.join(data_dir, "Actors.json")
     if not os.path.exists(actors_path):
         return macros
@@ -298,6 +298,7 @@ def extract_plugin_text(game_dir, collector):
     path = os.path.join(game_dir, "js", "plugins.js")
     if not os.path.exists(path):
         return 0
+    key: tuple[str] | tuple[str, int, int]
     try:
         st = os.stat(path)
         key = (path, st.st_mtime_ns, st.st_size)

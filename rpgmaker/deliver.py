@@ -60,7 +60,7 @@ def deliver(folder, archive=None, games=None, archives=None, level=15,
         raise ValueError(f"cannot derive game name from {folder}")
     archives = Path(archives or deliverables.archives_dir())
     games = Path(games or deliverables.games_dir())
-    local = platform.require_native_paths(
+    local_ref = platform.require_native_paths(
         "deliver local archive", folder=owned_folder,
         archive=archive_mod.output_ref(
             archive or Path(deliverables.temp_dir()) / (name + ".7z")))["archive"]
@@ -68,7 +68,7 @@ def deliver(folder, archive=None, games=None, archives=None, level=15,
     platform.require_same_side(
         "deliver destinations", archives=platform.resolve_ref(archives),
         games=platform.resolve_ref(games))
-    Path(local).parent.mkdir(parents=True, exist_ok=True)
+    Path(local_ref).parent.mkdir(parents=True, exist_ok=True)
 
     log.info("deliver %s -> archives=%s games=%s", name, archives, games)
 
@@ -77,7 +77,7 @@ def deliver(folder, archive=None, games=None, archives=None, level=15,
     # one, not the requested one.  Measured failure: --archive "<name>" wrote
     # "<name>.7z" into the cwd while the test looked at "<name>" and reported
     # a bogus "local archive failed integrity test".
-    local = Path(compress_mod.compress(owned_folder, local, level=level,
+    local = Path(compress_mod.compress(owned_folder, local_ref, level=level,
                                        root=name))
     if not compress_mod.test_archive(str(local)):
         raise RuntimeError(f"local archive failed integrity test: {local}")

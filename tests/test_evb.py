@@ -83,7 +83,7 @@ def test_pe_sections_reads_the_section_table(tmp_path):
     region = b"x" * 64
     exe = packed_exe(tmp_path, region)
     sections = evb.pe_sections(exe.read_bytes())
-    assert evb.CONTAINER_SECTION in sections
+    assert sections is not None and evb.CONTAINER_SECTION in sections
     vsize, raw_size, raw_ptr = sections[evb.CONTAINER_SECTION]
     assert (vsize, raw_size) == (0x1000, 64)
     assert raw_ptr == 0x400

@@ -111,7 +111,7 @@ def _physical_linux_cpuinfo(text):
     single-socket, containerised and ARM systems; a missing socket is treated
     as socket "0" so the core ids still add up.
     """
-    pairs = set()
+    pairs: set[tuple[str, str]] = set()
     phys = core = None
 
     def flush():

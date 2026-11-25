@@ -245,8 +245,8 @@ class Collector:
         self.order = []                    # keys in story order
         self.kind_of = {}
         self.context = {}
-        self.counts = collections.Counter()
-        self.name_cands = collections.Counter()
+        self.counts: collections.Counter[str] = collections.Counter()
+        self.name_cands: collections.Counter[str] = collections.Counter()
         self._seen = set()
 
     def add(self, s, kind, where="", window=None):
@@ -292,7 +292,7 @@ def extract_plugin_text(game_dir, col):
 
 def build_name_macros(data_dir):
     """\\N[x] / \\P[x] -> actor name (macro table, never translated itself)."""
-    macros = {}
+    macros: dict[str, str] = {}
     actors_path = os.path.join(data_dir, "Actors.json")
     if not os.path.exists(actors_path):
         return macros

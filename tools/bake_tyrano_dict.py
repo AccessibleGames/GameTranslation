@@ -225,7 +225,7 @@ def bake(work_dir, dict_path, out_path, min_coverage, force):
 
     translated = {}
     status = {}
-    samples = {}
+    samples: dict[str, list[str]] = {}
     for key in template:
         result, line = bake_key(key, table)
         status[key] = result
@@ -234,7 +234,7 @@ def bake(work_dir, dict_path, out_path, min_coverage, force):
         elif len(samples.setdefault(result, [])) < 5:
             samples[result].append(key[:70])
 
-    counts = {}
+    counts: dict[str, int] = {}
     for result in status.values():
         counts[result] = counts.get(result, 0) + 1
     total = sum(counts.get(r, 0) for r in (OK, MISSING, EMPTY, NEWLINE, KANA,

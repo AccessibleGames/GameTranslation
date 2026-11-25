@@ -27,6 +27,7 @@ import shutil
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import PureWindowsPath
+from typing import Literal, overload
 
 from . import platform, proctools, settings
 from .platform import posix, view  # pure helpers, no platform branching
@@ -291,7 +292,19 @@ def _path_lookup(tool):
     return None
 
 
-def resolve_tool(tool, with_source=False):
+@overload
+def resolve_tool(tool: Tool | str, with_source: Literal[False] = False) -> str | None: ...
+
+
+@overload
+def resolve_tool(tool: Tool | str, with_source: Literal[True]) -> tuple[str | None, str | None]: ...
+
+
+@overload
+def resolve_tool(tool: Tool | str, with_source: bool) -> str | tuple[str | None, str | None] | None: ...
+
+
+def resolve_tool(tool: Tool | str, with_source: bool = False) -> str | tuple[str | None, str | None] | None:
     """Resolve one :class:`Tool` (or registry key) to a usable path.
 
     Order: environment variable -> explicit machine config (globs allowed)
